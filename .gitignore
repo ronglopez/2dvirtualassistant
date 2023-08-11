@@ -1,0 +1,25 @@
+# dependencies
+frontend/node_modules/
+backend/venv/
+backend/venv310/
+backend/__pycache__/
+
+# uploaded files (if you don't want to track them)
+backend/uploads/
+
+# misc
+.DS_Store
+*.log*
+*.pyc
+*.pyo
+
+# environment files
+backend/.env
+frontend/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# production
+frontend/build/
