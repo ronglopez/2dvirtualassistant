@@ -6,13 +6,14 @@ from langchain.memory import ConversationBufferWindowMemory
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from elevenlabs import set_api_key, generate, play
 
 # Import the selected AI personality
 from personalities import AI_PERSONALITY
 
 # Sentiment analysis setup
 accumulated_sentiment = 0
-ai_mood = "Neutral"
+ai_mood = "neutral"
 
 SENTIMENT_SCORES = {
   "positive": 1,
@@ -28,6 +29,7 @@ load_dotenv()
 
 # Initialize the OpenAI API key from the environment variable
 openai.api_key = os.environ.get("OPENAI_API_KEY")
+set_api_key(os.environ.get("ELEVEN_API_KEY"))
 
 # Initialize Flask app and enable Cross-Origin Resource Sharing (CORS)
 app = Flask(__name__)
@@ -49,7 +51,7 @@ def analyze_sentiment(text):
   # Use OpenAI's model to predict sentiment
   response = openai.Completion.create(
     engine="text-davinci-002",
-    prompt=f"Using 1 word (Positive, negative, or neutral), what's the sentiment of the following statement? '{text}'",
+    prompt=f"Using 1 word in lowercase (positive, negative, or neutral), what's the sentiment of the following statement? '{text}'",
     temperature=0.5,
     max_tokens=10,
     top_p=1,
@@ -73,13 +75,14 @@ def update_ai_mood(user_sentiment):
 
   # Update AI mood based on thresholds
   moods = AI_PERSONALITY["moods"]
+
   if accumulated_sentiment > 8:
     ai_mood = moods["very_positive"]
-  elif accumulated_sentiment > 3:
+  elif accumulated_sentiment > 2:
     ai_mood = moods["positive"]
   elif accumulated_sentiment < -8:
     ai_mood = moods["very_negative"]
-  elif accumulated_sentiment < -3:
+  elif accumulated_sentiment < -2:
     ai_mood = moods["negative"]
   else:
     ai_mood = moods["neutral"]
@@ -112,8 +115,8 @@ def get_ai_response(human_input):
   # Initialize LangChain with the specified model and parameters
   chatgpt_chain = LLMChain(
     llm=OpenAI(
-      # model_name="text-davinci-003",
-      model_name="davinci",
+      model_name="text-davinci-003",
+      # model_name="davinci",
       temperature=0.9,
       max_tokens=10,
       top_p=1,
@@ -127,6 +130,15 @@ def get_ai_response(human_input):
 
   # Generate the AI response
   output = chatgpt_chain.predict(human_input=human_input)
+
+  # Convert the AI's text response into audio using ElevenLabs
+  ai_audio = generate(
+    text=output,
+    voice="Bella",  # You can choose a different voice if needed
+    model="eleven_monolingual_v1"
+  )
+
+  play(ai_audio)
   
   return output
 
