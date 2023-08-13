@@ -1,103 +1,129 @@
 # Import necessary libraries
 import openai
 import os
+from langchain import OpenAI, LLMChain, PromptTemplate
+from langchain.memory import ConversationBufferWindowMemory
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
+# Import the selected AI personality
+from personalities import AI_PERSONALITY
+
 # Load environment variables from .env file
 load_dotenv()
 
-# Initialize the OpenAI API key from environment variable
+# Initialize the OpenAI API key from the environment variable
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-# Initialize Flask app
+# Initialize Flask app and enable Cross-Origin Resource Sharing (CORS)
 app = Flask(__name__)
 CORS(app)
 
-# Ensure the uploads directory exists
+# Ensure the uploads directory exists for storing audio files
 if not os.path.exists('uploads'):
   os.makedirs('uploads')
 
-MIME_TYPE_MAP = {
-  "audio/wav": ".wav",
-  "audio/mp4": ".m4a",
-  # Add more mappings if needed
-}
+# Initialize a memory buffer to store conversation history
+memory = ConversationBufferWindowMemory(k=5)
 
 @app.route('/')
 def hello():
   return "Hello, World!"
 
+# Function to generate AI response based on user input
+def get_ai_response(human_input):
+  # Define the prompt template with placeholders for history and user input
+  template = """
+  {history}
+
+  Human: {human_input}
+  AI:
+  """
+
+  # Combine the AI personality description with the prompt template
+  prompt = PromptTemplate.from_template(AI_PERSONALITY["description"] + template)
+
+  # Initialize LangChain with the specified model and parameters
+  chatgpt_chain = LLMChain(
+    llm=OpenAI(
+      # model_name="text-davinci-003",
+      model_name="davinci",
+      temperature=0.9,
+      max_tokens=10,
+      top_p=1,
+      frequency_penalty=0,
+      presence_penalty=0.6
+    ),
+    prompt=prompt,
+    verbose=True,
+    memory=memory
+  )
+
+  # Generate the AI response
+  output = chatgpt_chain.predict(human_input=human_input)
+  
+  return output
+
+# Endpoint to provide an initial greeting on page load
+@app.route('/greeting', methods=['GET'])
+def greeting():
+  user_input = "Hello"
+  ai_response = get_ai_response(user_input)
+  return jsonify(ai_response)
+
+# Endpoint to handle text-based user prompts
 @app.route('/ask', methods=['POST'])
 def ask():
   user_input = request.json.get('input', '')
-  response = openai.Completion.create(
-    engine="davinci",
-    prompt=user_input,
-    max_tokens=50,
-    temperature=0.8
-  )
-  return jsonify(response.choices[0].text.strip())
+  ai_response = get_ai_response(user_input)
+  return jsonify(ai_response)
 
+# Endpoint to handle voice-based user prompts
 @app.route('/voice', methods=['POST'])
 def voice():
-  print("Received request.")
-  print(request.files)
-
+  # Check if the audio file is present in the request
   if 'file' not in request.files:
     return jsonify(error="No file part"), 400
 
   audio_file = request.files['file']
-
+  
+  # Check if a filename is provided
   if audio_file.filename == '':
     return jsonify(error="No selected file"), 400
 
-  # Get the content type of the uploaded file
+  # Determine the file extension based on content type
   content_type = audio_file.content_type
-
-  # Determine the file extension based on the content type
+  extension = ".unknown"
   if "audio/wav" in content_type:
     extension = ".wav"
   elif "audio/webm" in content_type:
     extension = ".webm"
-  else:
-    extension = ".unknown"  # or handle other types as needed
 
-  # Save the uploaded file locally with the determined extension
+  # Save the uploaded audio file
   file_path = os.path.join("uploads", "uploaded_audio" + extension)
   audio_file.save(file_path)
 
   try:
-    print(file_path)
-    # Transcribe the audio file using Whisper ASR API
+    # Transcribe the audio file to text
     with open(file_path, "rb") as file_to_send:
       transcription_result = openai.Audio.transcribe(model="whisper-1", file=file_to_send)
-      print(f"Transcription Result: {transcription_result}")  # Print the entire result
-      transcription = transcription_result['text']  # Adjusted this line
+      transcription = transcription_result['text']
 
-    print(f"Transcription: {transcription}")
+    # Generate the AI response based on the transcription
+    ai_response = get_ai_response(transcription)
 
-    print("Querying GPT-3.")
-    # Get a response from GPT-3 using the transcription
-    response = openai.Completion.create(
-      engine="davinci",
-      prompt=transcription,
-      max_tokens=50,
-      temperature=0.8
-    )
-
-    # Delete the saved file
+    # Remove the saved audio file
     os.remove(file_path)
 
     return jsonify({
       "transcription": transcription,
-      "ai_response": response.choices[0].text.strip()
+      "ai_response": ai_response
     })
 
   except Exception as e:
-    print(f"Error: {str(e)}")
     return jsonify(error=str(e)), 500
 
+# Run the Flask app in debug mode
 if __name__ == "__main__":
   app.run(debug=True)
