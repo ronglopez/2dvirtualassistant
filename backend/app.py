@@ -10,6 +10,19 @@ from dotenv import load_dotenv
 # Import the selected AI personality
 from personalities import AI_PERSONALITY
 
+# Sentiment analysis setup
+accumulated_sentiment = 0
+ai_mood = "Neutral"
+
+SENTIMENT_SCORES = {
+  "positive": 1,
+  "neutral": 0,
+  "negative": -1
+}
+
+MAX_LEVEL = 10
+MIN_LEVEL = -10
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -31,10 +44,62 @@ memory = ConversationBufferWindowMemory(k=5)
 def hello():
   return "Hello, World!"
 
+# Sentiment analysis
+def analyze_sentiment(text):
+  # Use OpenAI's model to predict sentiment
+  response = openai.Completion.create(
+    engine="text-davinci-002",
+    prompt=f"Using 1 word (Positive, negative, or neutral), what's the sentiment of the following statement? '{text}'",
+    temperature=0.5,
+    max_tokens=10,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0
+  )
+
+  sentiment = response.choices[0].text.strip()
+
+  return sentiment
+
+# Update AI's Mood depending on sentiment analysis
+def update_ai_mood(user_sentiment):
+  global ai_mood, accumulated_sentiment
+
+  # Update accumulated sentiment
+  accumulated_sentiment += SENTIMENT_SCORES[user_sentiment]
+
+  # Ensure accumulated sentiment is within max and min levels
+  accumulated_sentiment = max(MIN_LEVEL, min(accumulated_sentiment, MAX_LEVEL))
+
+  # Update AI mood based on thresholds
+  moods = AI_PERSONALITY["moods"]
+  if accumulated_sentiment > 8:
+    ai_mood = moods["very_positive"]
+  elif accumulated_sentiment > 3:
+    ai_mood = moods["positive"]
+  elif accumulated_sentiment < -8:
+    ai_mood = moods["very_negative"]
+  elif accumulated_sentiment < -3:
+    ai_mood = moods["negative"]
+  else:
+    ai_mood = moods["neutral"]
+
 # Function to generate AI response based on user input
 def get_ai_response(human_input):
+
+  # Sentiment Analysis of User Input
+  user_sentiment = analyze_sentiment(human_input)
+  print(f"Detected User Sentiment: {user_sentiment}")
+
+  # Update AI's mood based on user sentiment
+  update_ai_mood(user_sentiment)
+
+  print(f"Updated AI Mood: {ai_mood}")
+
   # Define the prompt template with placeholders for history and user input
   template = """
+  
+  Chat History:
   {history}
 
   Human: {human_input}
@@ -42,7 +107,7 @@ def get_ai_response(human_input):
   """
 
   # Combine the AI personality description with the prompt template
-  prompt = PromptTemplate.from_template(AI_PERSONALITY["description"] + template)
+  prompt = PromptTemplate.from_template(AI_PERSONALITY["description"] + f"You are feeling {ai_mood}" + template)
 
   # Initialize LangChain with the specified model and parameters
   chatgpt_chain = LLMChain(
@@ -57,7 +122,7 @@ def get_ai_response(human_input):
     ),
     prompt=prompt,
     verbose=True,
-    memory=memory
+    memory=memory,
   )
 
   # Generate the AI response
