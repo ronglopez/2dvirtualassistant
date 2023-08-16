@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
 import './ChatInterface.css';
@@ -8,6 +8,7 @@ function ChatInterface() {
   const [chatLog, setChatLog] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const inputRef = useRef(null);
 
   // Handle changes in the text input field
   const handleInputChange = (event) => {
@@ -36,7 +37,12 @@ function ChatInterface() {
     
     // Clear the input field
     setUserInput('');
-    setIsProcessing(false)
+    setIsProcessing(false);
+
+    // Focus on the input field after processing is complete
+    setTimeout(() => {
+      inputRef.current.focus();
+    }, 100);    
   };
 
   // Handle the stopping of voice recording
@@ -105,6 +111,7 @@ function ChatInterface() {
           onChange={handleInputChange}
           placeholder="Type your message..."
           disabled={isProcessing}
+          ref={inputRef}
         />
         <button type="submit" disabled={isProcessing || !userInput.trim()}>
           {isProcessing ? "Sending..." : "Send"}
