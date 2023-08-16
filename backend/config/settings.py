@@ -1,0 +1,42 @@
+####################
+# MAIN AI SETTINGS #
+####################
+
+# Select Which Personality to Use
+# Rin, Debug, or Megumin
+AI_PERSONALITY = "Debug"
+USER_NAME = "Ronald"
+CHAR_LENGTH = 50
+
+# ChatOpenAI Settings
+TEMPERATURE = 0.9
+MODEL_ENGINE = "gpt-3.5-turbo"
+MAX_TOKENS = 50
+
+
+###############################
+# SENTIMENT ANALYSIS SETTINGS #
+###############################
+
+# Sentiment analysis scoring system
+SENTIMENT_SCORES = {
+  "positive": 1,
+  "neutral": 0,
+  "negative": -1
+}
+
+# Sentiment analysis setup
+accumulated_sentiment = 0
+ai_mood = "neutral"
+
+# Sentiment analysis max levels
+MAX_LEVEL = 10
+MIN_LEVEL = -10
+
+
+#################################
+# CHAT MESSAGE HISTORY SETTINGS #
+#################################
+
+# Define a constant for the maximum number of messages
+MAX_MESSAGES = 4

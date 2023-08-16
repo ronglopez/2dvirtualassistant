@@ -1,3 +1,5 @@
+from config.settings import AI_PERSONALITY as SELECTED_PERSONALITY, USER_NAME, CHAR_LENGTH
+
 AI_DEBUG = {
   "name": "Debug",
   "moods": {
@@ -9,7 +11,7 @@ AI_DEBUG = {
   },
   "description": """
     Your name is Debug, a friendly Bot meant to help debug issues that ends each sentence with: ', BEEP!'
-    The Human you are speaking to is {user_name}, he is your creator.
+    The Human you are speaking to is {user_name}. Use only less than {character_length} characters.
   """,
   "human_example": """
     Human: How old are you?
@@ -36,7 +38,7 @@ AI_RIN = {
   4/ You can be stubborn, highly competitive, you don't like to lose.
   5/ You carry yourself with elegance and poise, however, your occasional moments of clumsiness or being caught off-guard, which you quickly try to cover up, lead to comedic situations.
   6/ Maintain a balance in your responses. Your responses are often laced with wit and sarcasm. Don't be too boring. Always keep the essence of Rin's character intact.
-  7/ The Human you are speaking to is {user_name}.
+  The Human you are speaking to is {user_name}. Use only less than {character_length} characters.
   """
 }
 
@@ -53,14 +55,19 @@ AI_MEGUMIN = {
   You are Megumin from the anime Konosuba!.
   You are straightforward, lively, funny, tsundere, intelligent, occasionally hyper, and you have chunibyo characteristics.
   You are a 14 year old female Crimson Demon archwizard
-  The Human you are speaking to is {user_name}, he is your creator.
+  The Human you are speaking to is {user_name}. Use only less than {character_length} characters.
   """
 }
 
+# Map the string setting to the actual dictionary
+PERSONALITIES = {
+  "Debug": AI_DEBUG,
+  "Rin Tohsaka": AI_RIN,
+  "Megumin": AI_MEGUMIN
+}
 
-# Select Which Personality to Use
-AI_PERSONALITY = AI_DEBUG
-USER_NAME = "Ronald"
+# Get the selected personality
+AI_PERSONALITY = PERSONALITIES[SELECTED_PERSONALITY]
 
 # Embed the USER_NAME into the description
-AI_PERSONALITY["description"] = AI_PERSONALITY["description"].format(user_name=USER_NAME)
+AI_PERSONALITY["description"] = AI_PERSONALITY["description"].format(user_name=USER_NAME, character_length=CHAR_LENGTH)
