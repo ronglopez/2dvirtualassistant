@@ -81,8 +81,10 @@ def get_ai_response(human_input):
     verbose=True,
   )
 
+  # Get the AI response
   ai_response = conversation_bufw.predict(human_input=human_input)
 
+  # Save messages to memory file
   conversation_messages = conversation_bufw.memory.chat_memory.messages
 
   messages = messages_to_dict(conversation_messages)
@@ -97,6 +99,11 @@ def get_ai_response(human_input):
     model="eleven_monolingual_v1"
   )
 
+  # todo - we need a function that strips out any outputed text that appears within "*", ie. *laughs*
+  #        and then have that audio play instead of ai_audio. Would only be used there
+  #        This seems to be an issue with ElevenLabs, may not be an issue on other platforms
+
+  # play(STRPPED_AI_AUDIO)
   play(ai_audio)
 
   print(f"Number of messages before writing to JSON: {len(messages)}")

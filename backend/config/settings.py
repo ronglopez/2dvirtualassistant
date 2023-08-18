@@ -6,12 +6,12 @@
 # Rin, Debug, or Megumin
 AI_PERSONALITY = "Debug"
 USER_NAME = "Ronald"
-CHAR_LENGTH = 50
+CHAR_LENGTH = 100
 
 # ChatOpenAI Settings
 TEMPERATURE = 0.9
 MODEL_ENGINE = "gpt-3.5-turbo"
-MAX_TOKENS = 50
+MAX_TOKENS = 100
 
 
 ###############################
