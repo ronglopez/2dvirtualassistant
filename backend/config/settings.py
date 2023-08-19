@@ -15,9 +15,10 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 MAX_TOKENS = 50
 
 # ElevenLabs Settings
-AI_VOICE = "Freya"
+AI_VOICE = "Freya" # For standard client output 
+AI_VOICE_ID = "jsCqWAovK2LkecY7zXl4" # For streaming 
 ELABS_MODEL = "eleven_monolingual_v1"
-
+ELABS_STREAM = True
 
 ###############################
 # SENTIMENT ANALYSIS SETTINGS #

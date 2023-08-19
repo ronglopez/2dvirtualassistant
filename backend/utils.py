@@ -1,13 +1,16 @@
 # Import necessary libraries
+import os
+import requests
+import subprocess
 from pathlib import Path
 
 # Import ElevenLabs text-to-speech
-from elevenlabs import generate
+from elevenlabs import generate, play
 
 # Import settings
-from config.settings import MIN_SENTENCE_LENGTH, ELABS_MODEL, AI_VOICE
+from config.settings import MIN_SENTENCE_LENGTH, ELABS_MODEL, AI_VOICE, AI_VOICE_ID
 
-# Function to initialize ElevenLabs
+# Generate audio using ElevenLabs client
 def generate_audio(text, voice=AI_VOICE, model=ELABS_MODEL):
   return generate(
     text=text,
@@ -15,7 +18,18 @@ def generate_audio(text, voice=AI_VOICE, model=ELABS_MODEL):
     model=model
   )
 
-# Split sentences into text chuncks
+# Check if AI response has multiple long messages. Use with ElevenLabs client
+def speak_sentences(sentences):
+  if len(sentences) == 1:
+    ai_audio = generate_audio(sentences[0])
+    play(ai_audio)
+  else:
+    # Handle multiple sentences
+    for sentence in sentences:
+      ai_audio = generate_audio(sentence)
+      play(ai_audio)
+
+# Split sentences into text chuncks. Use with ElevenLabs client
 def split_text(text, max_length=MIN_SENTENCE_LENGTH):
   sentences = []
   while text:
@@ -36,6 +50,40 @@ def split_text(text, max_length=MIN_SENTENCE_LENGTH):
     text = text[split_at:].strip()
 
   return sentences
+
+# Stream audio using ElevenLabs API
+def stream_audio(text, voice=AI_VOICE_ID, model=ELABS_MODEL, api_key=os.environ.get("ELEVEN_API_KEY")):
+  CHUNK_SIZE = 1096
+  url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}/stream"
+
+  headers = {
+    "Accept": "*/*",
+    "Content-Type": "application/json",
+    "xi-api-key": api_key
+  }
+
+  data = {
+    "text": text,
+    "model_id": model,
+    "voice_settings": {
+      "stability": 0.5,
+      "similarity_boost": 0.5
+    }
+  }
+
+  response = requests.post(url, headers=headers, json=data, stream=True)
+  response.raise_for_status()
+
+  # use subprocess to pipe the audio data to ffplay and play it
+  ffplay_cmd = ['ffplay', '-nodisp', '-autoexit', '-']
+  ffplay_proc = subprocess.Popen(ffplay_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+  for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+    ffplay_proc.stdin.write(chunk)
+
+  # close the ffplay process when finished
+  ffplay_proc.stdin.close()
+  ffplay_proc.wait()
 
 # Function to clear message history
 def clear_messages_file():

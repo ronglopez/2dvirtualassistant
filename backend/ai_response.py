@@ -1,7 +1,6 @@
 # Import necessary libraries
 from pathlib import Path
 import json
-import re
 import time
 
 # Import LangChain
@@ -10,15 +9,12 @@ from langchain.memory import ConversationBufferWindowMemory, ChatMessageHistory
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import messages_from_dict, messages_to_dict
 
-# Import ElevenLabs text-to-speech
-from elevenlabs import play
-
 # Import utility files
-from utils import clear_messages_file, split_text, generate_audio
+from utils import clear_messages_file, split_text, speak_sentences, stream_audio
 
 # Import settings
 from personalities import AI_PERSONALITY
-from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS
+from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS, ELABS_STREAM
 
 # Import sentiment analysis
 from sentiment_analysis import analyze_sentiment, update_ai_mood
@@ -116,22 +112,17 @@ def get_ai_response(human_input):
     return "I'm sorry, I encountered an error. Please try again."
 
   # Convert the AI's text response into audio using ElevenLabs
-  sentences = split_text(ai_response)
-
-  # Convert the AI's text response into audio using ElevenLabs
   # Start the text-to-speech monitoring timer
   start_text_to_speech_time = time.time()
 
-  if len(sentences) == 1:
-    print(ai_response)
-    ai_audio = generate_audio(ai_response)
-    play(ai_audio)
+  # ElevenLabs text-to-speech functions
+  if ELABS_STREAM:
+    # Use ElevenLabs streaming method for text-to-speech
+    stream_audio(ai_response)
   else:
-    # Handle multiple sentences
-    for sentence in sentences:
-      print(sentence)
-      audio_stream = generate_audio(sentence)
-      play(audio_stream)
+    # Use ElevenLabs sentence-by-sentence method for text-to-speech
+    sentences = split_text(ai_response)
+    speak_sentences(sentences)
 
   # End the text-to-speech monitoring timer
   end_text_to_speech_time = time.time()
