@@ -4,14 +4,19 @@
 
 # Select Which Personality to Use
 # Rin, Debug, or Megumin
-AI_PERSONALITY = "Debug"
+AI_PERSONALITY = "Rin"
 USER_NAME = "Ronald"
 CHAR_LENGTH = 100
+MIN_SENTENCE_LENGTH = 50
 
 # ChatOpenAI Settings
 TEMPERATURE = 0.9
-MODEL_ENGINE = "gpt-3.5-turbo"
-MAX_TOKENS = 100
+OPENAI_MODEL = "gpt-3.5-turbo"
+MAX_TOKENS = 50
+
+# ElevenLabs Settings
+AI_VOICE = "Freya"
+ELABS_MODEL = "eleven_monolingual_v1"
 
 
 ###############################

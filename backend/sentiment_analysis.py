@@ -1,4 +1,7 @@
+# Import necessary libraries
 import openai
+
+# Import settings
 from personalities import AI_PERSONALITY
 from config.settings import SENTIMENT_SCORES, MAX_LEVEL, MIN_LEVEL
 

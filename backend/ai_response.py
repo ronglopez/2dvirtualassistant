@@ -1,5 +1,8 @@
+# Import necessary libraries
 from pathlib import Path
 import json
+import re
+import time
 
 # Import LangChain
 from langchain import PromptTemplate, LLMChain
@@ -8,17 +11,23 @@ from langchain.chat_models import ChatOpenAI
 from langchain.schema import messages_from_dict, messages_to_dict
 
 # Import ElevenLabs text-to-speech
-from elevenlabs import generate, play
+from elevenlabs import play
+
+# Import utility files
+from utils import clear_messages_file, split_text, generate_audio
 
 # Import settings
 from personalities import AI_PERSONALITY
-from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, MODEL_ENGINE, MAX_TOKENS
+from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS
 
 # Import sentiment analysis
 from sentiment_analysis import analyze_sentiment, update_ai_mood
 
 # Function to generate AI response based on user input
 def get_ai_response(human_input):
+
+  # Start the ai response monitoring timer
+  start_response_time = time.time()
 
   # Sentiment Analysis of User Input
   global ai_mood, accumulated_sentiment
@@ -28,7 +37,7 @@ def get_ai_response(human_input):
   ai_mood, accumulated_sentiment = update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment)
 
   # Initialize LangChain with the specified model and parameters
-  llm = ChatOpenAI(temperature=TEMPERATURE, model_name=MODEL_ENGINE, max_tokens=MAX_TOKENS)
+  llm = ChatOpenAI(temperature=TEMPERATURE, model_name=OPENAI_MODEL, max_tokens=MAX_TOKENS)
 
   history = ChatMessageHistory()
 
@@ -81,31 +90,55 @@ def get_ai_response(human_input):
     verbose=True,
   )
 
-  # Get the AI response
-  ai_response = conversation_bufw.predict(human_input=human_input)
+  try:
+    # Get the AI response
+    ai_response = conversation_bufw.predict(human_input=human_input)
 
-  # Save messages to memory file
-  conversation_messages = conversation_bufw.memory.chat_memory.messages
+    # End the ai response monitoring timer
+    end_response_time = time.time()  
+    ai_response_time = end_response_time - start_response_time
+    print(f"AI Response Time: {ai_response_time:.2f} seconds")
 
-  messages = messages_to_dict(conversation_messages)
+    # Save messages to memory file
+    conversation_messages = conversation_bufw.memory.chat_memory.messages
 
-  with file_path.open("w") as f:
-    json.dump(messages, f, indent=2)
+    messages = messages_to_dict(conversation_messages)
+
+    with file_path.open("w") as f:
+      json.dump(messages, f, indent=2)
+
+  # Error handling for exceeding OpenAI max token use
+  except Exception as e:
+    print("An error occurred, possibly due to token limit. Clearing message history and restarting.")
+
+    # Clear the message history
+    clear_messages_file() 
+    return "I'm sorry, I encountered an error. Please try again."
 
   # Convert the AI's text response into audio using ElevenLabs
-  ai_audio = generate(
-    text=ai_response,
-    voice="Freya",  # You can choose a different voice if needed
-    model="eleven_monolingual_v1"
-  )
+  sentences = split_text(ai_response)
 
-  # todo - we need a function that strips out any outputed text that appears within "*", ie. *laughs*
-  #        and then have that audio play instead of ai_audio. Would only be used there
-  #        This seems to be an issue with ElevenLabs, may not be an issue on other platforms
+  # Convert the AI's text response into audio using ElevenLabs
+  # Start the text-to-speech monitoring timer
+  start_text_to_speech_time = time.time()
 
-  # play(STRPPED_AI_AUDIO)
-  play(ai_audio)
+  if len(sentences) == 1:
+    print(ai_response)
+    ai_audio = generate_audio(ai_response)
+    play(ai_audio)
+  else:
+    # Handle multiple sentences
+    for sentence in sentences:
+      print(sentence)
+      audio_stream = generate_audio(sentence)
+      play(audio_stream)
 
+  # End the text-to-speech monitoring timer
+  end_text_to_speech_time = time.time()
+  text_to_speech_time = end_text_to_speech_time - start_text_to_speech_time
+  print(f"Text-to-Speech Generation Time: {text_to_speech_time:.2f} seconds")
+
+  # Monitor JSON memory file
   print(f"Number of messages before writing to JSON: {len(messages)}")
   
   return ai_response

@@ -2,11 +2,14 @@
 import openai
 import atexit
 import os
-from pathlib import Path
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from elevenlabs import set_api_key
+
+# Import utility files
+from utils import clear_messages_file
 
 # Load environment variables from .env file
 load_dotenv("config/.env")
@@ -25,13 +28,6 @@ from ai_response import *
 # Ensure the uploads directory exists for storing audio files
 if not os.path.exists('uploads'):
   os.makedirs('uploads')
-
-# Function to clear message history
-def clear_messages_file():
-  """Clear the contents of messages.json."""
-  file_path = Path("data") / "messages.json"
-  with file_path.open("w") as f:
-    f.write("")
 
 # Register the function to be called on exit
 atexit.register(clear_messages_file)
@@ -53,6 +49,7 @@ def ask():
 # Endpoint to handle voice-based user prompts
 @app.route('/voice', methods=['POST'])
 def voice():
+
   # Check if the audio file is present in the request
   if 'file' not in request.files:
     return jsonify(error="No file part"), 400
@@ -76,10 +73,18 @@ def voice():
   audio_file.save(file_path)
 
   try:
+    # Start the monitoring timer
+    start_transcription_time = time.time()
+
     # Transcribe the audio file to text
     with open(file_path, "rb") as file_to_send:
       transcription_result = openai.Audio.transcribe(model="whisper-1", file=file_to_send)
       transcription = transcription_result['text']
+
+    # End the transcription monitoring timer
+    end_transcription_time = time.time()
+    transcription_time = end_transcription_time - start_transcription_time
+    print(f"Audio Transcription Time: {transcription_time:.2f} seconds")
 
     # Generate the AI response based on the transcription
     ai_response = get_ai_response(transcription)
