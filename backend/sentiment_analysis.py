@@ -1,13 +1,30 @@
 # Import necessary libraries
 import openai
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 # Import settings
 from personalities import AI_PERSONALITY
 from config.settings import SENTIMENT_SCORES, MAX_LEVEL, MIN_LEVEL
 
+def analyze_sentiment_vader(text):
+  nltk.data.path.append('./resources/nltk_data')
+  sia = SentimentIntensityAnalyzer()
+  sentiment_score = sia.polarity_scores(text)
+  compound_score = sentiment_score['compound']
+
+  # Classify sentiment and intensity based on the compound score
+  if compound_score >= 0.05:
+    return "positive", compound_score
+  elif compound_score <= -0.05:
+    return "negative", -compound_score
+  else:
+    return "neutral", 0
+
 # Sentiment analysis
 # todo: Further testing required, sometimes will use other words and that will break the system. This NEEDS to be consistent
 def analyze_sentiment(text):
+  
   # Use OpenAI's model to predict sentiment
   response = openai.Completion.create(
     engine="text-davinci-002",
@@ -27,22 +44,25 @@ def analyze_sentiment(text):
 # Update AI's Mood depending on sentiment analysis
 def update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment):
 
-  # Split sentiment and intensity
-  sentiment, intensity = user_sentiment.split(',')
-  sentiment = sentiment.strip()
-  intensity = int(intensity.strip())
+  # Get sentiment and intensity
+  sentiment, intensity = user_sentiment
 
   # Get sentiment score 
   base_score = SENTIMENT_SCORES[sentiment]
 
+  print(f"User sentiment was: {sentiment}, and scored: {base_score}")
+  print(f"Intensity level was: {intensity}")
+
   # Adjust score based on intensity 
   adjusted_score = base_score * intensity
+  print(f"Sentiment score was: {adjusted_score}")
 
   # Update accumulated sentiment
   accumulated_sentiment += adjusted_score
 
   # Ensure accumulated sentiment is within max and min levels
   accumulated_sentiment = max(MIN_LEVEL, min(accumulated_sentiment, MAX_LEVEL))
+  print(f"Total score is at: {accumulated_sentiment}")
 
   # Update AI mood based on thresholds
   moods = AI_PERSONALITY["moods"]

@@ -91,4 +91,3 @@ def clear_messages_file():
   file_path = Path("data") / "messages.json"
   with file_path.open("w") as f:
     f.write("")
-    

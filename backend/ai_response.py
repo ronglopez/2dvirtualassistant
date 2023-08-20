@@ -11,13 +11,14 @@ from langchain.schema import messages_from_dict, messages_to_dict
 
 # Import utility files
 from utils import clear_messages_file, split_text, speak_sentences, stream_audio
+from moderation import moderate_output
 
 # Import settings
 from personalities import AI_PERSONALITY
 from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS, ELABS_STREAM
 
 # Import sentiment analysis
-from sentiment_analysis import analyze_sentiment, update_ai_mood
+from sentiment_analysis import analyze_sentiment, update_ai_mood, analyze_sentiment_vader
 
 # Function to generate AI response based on user input
 def get_ai_response(human_input):
@@ -27,7 +28,12 @@ def get_ai_response(human_input):
 
   # Sentiment Analysis of User Input
   global ai_mood, accumulated_sentiment
-  user_sentiment = analyze_sentiment(human_input)
+
+  # Select using VADER or non VADER analysis
+  # user_sentiment = analyze_sentiment(human_input)
+  user_sentiment = analyze_sentiment_vader(human_input)
+  
+  print(user_sentiment)
 
   # Update AI's mood based on user sentiment
   ai_mood, accumulated_sentiment = update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment)
@@ -89,6 +95,9 @@ def get_ai_response(human_input):
   try:
     # Get the AI response
     ai_response = conversation_bufw.predict(human_input=human_input)
+
+    # Moderate AI response
+    ai_response = moderate_output(ai_response)
 
     # End the ai response monitoring timer
     end_response_time = time.time()  

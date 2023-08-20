@@ -26,9 +26,9 @@ ELABS_STREAM = True
 
 # Sentiment analysis scoring system
 SENTIMENT_SCORES = {
-  "positive": 1,
+  "positive": 3,
   "neutral": 0,
-  "negative": -1
+  "negative": -3
 }
 
 # Sentiment analysis setup
