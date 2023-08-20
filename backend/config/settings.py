@@ -46,3 +46,11 @@ MIN_LEVEL = -10
 
 # Define a constant for the maximum number of messages
 MAX_MESSAGES = 4
+
+#######################
+# MODERATION SETTINGS #
+#######################
+
+# Moderation set up to simply replace the profane word
+# Set variable to True if you want the whole ai_response to be replaced
+MOD_REPLACE_RESPONSE = False
