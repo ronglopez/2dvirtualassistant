@@ -4,7 +4,7 @@
 
 # Select Which Personality to Use
 # Rin, Debug, or Megumin
-AI_PERSONALITY = "Rin"
+AI_PERSONALITY = "Debug"
 USER_NAME = "Ronald"
 CHAR_LENGTH = 100
 MIN_SENTENCE_LENGTH = 50

@@ -11,22 +11,35 @@ def analyze_sentiment(text):
   # Use OpenAI's model to predict sentiment
   response = openai.Completion.create(
     engine="text-davinci-002",
-    prompt=f"Using ONLY 1 word in lowercase (and only these words: positive, negative, or neutral), what's the sentiment of the following text? '{text}'",
-    temperature=0.5,
+    prompt = f"I expect 1 word and 1 integer separated by a comma. First answer, classify the sentiment of the following text (Use ONLY 1 word in lowercase and only these words: positive, negative, or neutral). Second answer, rate the intensity of the following text on a scale from 1 to 5: '{text}'",
+    temperature=0.1,
     max_tokens=10,
     top_p=1,
     frequency_penalty=0,
     presence_penalty=0
   )
 
-  sentiment = response.choices[0].text.strip()
+  # Response should give a sentiment and an number
+  response_text = response.choices[0].text.strip()
 
-  return sentiment
+  return response_text
 
 # Update AI's Mood depending on sentiment analysis
 def update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment):
+
+  # Split sentiment and intensity
+  sentiment, intensity = user_sentiment.split(',')
+  sentiment = sentiment.strip()
+  intensity = int(intensity.strip())
+
+  # Get sentiment score 
+  base_score = SENTIMENT_SCORES[sentiment]
+
+  # Adjust score based on intensity 
+  adjusted_score = base_score * intensity
+
   # Update accumulated sentiment
-  accumulated_sentiment += SENTIMENT_SCORES[user_sentiment]
+  accumulated_sentiment += adjusted_score
 
   # Ensure accumulated sentiment is within max and min levels
   accumulated_sentiment = max(MIN_LEVEL, min(accumulated_sentiment, MAX_LEVEL))

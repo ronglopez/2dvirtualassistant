@@ -26,7 +26,7 @@ function ChatInterface() {
     
     try {
       // Send user's message to backend and get AI's response
-      const response = await axios.post('http://localhost:5000/ask', { input: userInput });
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: userInput });
       const aiResponse = response.data;
       
       // Add AI's response to chat log
@@ -53,7 +53,7 @@ function ChatInterface() {
 
     try {
       // Send the audio blob to the backend for transcription and AI response
-      const response = await axios.post('http://localhost:5000/voice', formData);
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/voice`, formData);
       const { transcription, ai_response } = response.data;
       
       // Add the transcribed audio and AI's response to the chat log
@@ -66,20 +66,19 @@ function ChatInterface() {
 
   const handleRecording = () => {
     setIsRecording(prevIsRecording => !prevIsRecording);
-    if (!isRecording) {  // If starting to record
+    if (isRecording) {  // If stopping the recording
       setTimeout(() => {
-        if (!isRecording) {
-          setIsRecording(false);
-        }
+        setIsRecording(false);
       }, 6000);  // Stop recording after 6 seconds
     }
   };
+  
 
   // Fetch the greeting message when the component mounts
   useEffect(() => {
     const fetchGreeting = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/greeting');
+        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/greeting`);
         const greeting = response.data;
         
         // Add AI's greeting to chat log
@@ -112,8 +111,9 @@ function ChatInterface() {
           placeholder="Type your message..."
           disabled={isProcessing}
           ref={inputRef}
+          aria-label="Chat input field"  // <-- Added for accessibility
         />
-        <button type="submit" disabled={isProcessing || !userInput.trim()}>
+        <button type="submit" disabled={isProcessing || !userInput.trim()} aria-label="Send message">
           {isProcessing ? "Sending..." : "Send"}
         </button>
       </form>
@@ -126,8 +126,9 @@ function ChatInterface() {
           onStop={onStop}
           strokeColor="#000000"
           backgroundColor="#FF4081"
+          aria-label="Audio recorder"  // <-- Added for accessibility
         />
-        <button onClick={handleRecording}>
+        <button onClick={handleRecording} aria-label="Audio recording button">
           {isRecording ? "Recording..." : "Start Recording"}
         </button>
       </div>

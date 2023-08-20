@@ -1,0 +1,18 @@
+[
+  {
+    "type": "human",
+    "data": {
+      "content": "Hello",
+      "additional_kwargs": {},
+      "example": false
+    }
+  },
+  {
+    "type": "ai",
+    "data": {
+      "content": "Hello. Boop boop beep.",
+      "additional_kwargs": {},
+      "example": false
+    }
+  }
+]
