@@ -1,3 +1,4 @@
+// Import necessary libraries
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
@@ -8,6 +9,8 @@ function ChatInterface() {
   const [chatLog, setChatLog] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const isListeningRef = useRef(isListening);
   const inputRef = useRef(null);
 
   // Handle changes in the text input field
@@ -72,7 +75,10 @@ function ChatInterface() {
       }, 6000);  // Stop recording after 6 seconds
     }
   };
-  
+
+  const handleListening = () => {
+    setIsListening((prevIsListening) => !prevIsListening);
+  };
 
   // Fetch the greeting message when the component mounts
   useEffect(() => {
@@ -89,7 +95,40 @@ function ChatInterface() {
     };
 
     fetchGreeting();
-  }, []); // <-- The empty dependency array ensures this runs only once when the component mounts
+  }, []); // Empty dependency array ensures this runs only once
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  // Handle the listening loop
+  useEffect(() => {
+    if (isListening) {
+      const listenLoop = async () => {
+        try {
+          while (isListeningRef.current) {
+
+            // Make a request to the /listen endpoint
+            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/listen`);
+
+            const { transcription, ai_response } = response.data;
+
+            // Add the transcribed audio and AI's response to the chat log
+            setChatLog((prevLog) => [...prevLog, { role: 'user', content: transcription },]);
+            setChatLog((prevLog) => [...prevLog, { role: 'assistant', content: ai_response },]);
+
+            // Optional: Add a delay to prevent continuous rapid polling
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        } catch (error) {
+          
+        console.error("Error listening to audio:", error);
+      }
+    };
+
+    listenLoop();
+  }
+}, [isListening]); // This effect runs whenever isListening changes
 
   return (
     <div className="chat-interface">
@@ -126,10 +165,13 @@ function ChatInterface() {
           onStop={onStop}
           strokeColor="#000000"
           backgroundColor="#FF4081"
-          aria-label="Audio recorder"  // <-- Added for accessibility
+          aria-label="Audio recorder"
         />
         <button onClick={handleRecording} aria-label="Audio recording button">
           {isRecording ? "Recording..." : "Start Recording"}
+        </button>
+        <button onClick={handleListening} aria-label="Listening mode button">
+          {isListening ? "Listening..." : "Start Listening"}
         </button>
       </div>
     </div>

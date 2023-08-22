@@ -3,6 +3,7 @@ import openai
 import atexit
 import os
 import time
+import speech_recognition as sr
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -45,6 +46,48 @@ def ask():
   user_input = request.json.get('input', '')
   ai_response = get_ai_response(user_input)
   return jsonify(ai_response)
+
+# Endpoint to handle voice-based user prompts
+@app.route('/listen', methods=['POST'])
+def listen():
+
+  # Check microphone device_index number, make sure to use the correct one
+  for index, name in enumerate(sr.Microphone.list_microphone_names()):
+    print(f"Microphone with name \"{name}\" found for `Microphone(device_index={index})`")
+
+  # Initialize Mic
+  r = sr.Recognizer()
+  r.dynamic_energy_threshold=False
+  r.energy_threshold = 400
+
+  while True:
+    with sr.Microphone(device_index=1) as source:
+      print("\nListening...")
+      r.adjust_for_ambient_noise(source, duration=0.5)
+      audio = r.listen(source)
+
+      try:
+        # Save the audio file
+        with open('speech.wav', 'wb') as f:
+          f.write(audio.get_wav_data())
+
+        with open('speech.wav', 'rb') as speech:
+          transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
+          transcription = transcription_result['text']
+
+        # Generate the AI response based on the transcription
+        ai_response = get_ai_response(transcription)
+
+        # Remove the saved audio file
+        os.remove('speech.wav')
+
+        return jsonify({
+          "transcription": transcription,
+          "ai_response": ai_response
+        })
+
+      except Exception as e:
+        return jsonify(error=str(e)), 500
 
 # Endpoint to handle voice-based user prompts
 @app.route('/voice', methods=['POST'])
