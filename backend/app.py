@@ -1,8 +1,10 @@
 # Import necessary libraries
+import sys
 import openai
 import atexit
 import os
 import time
+import tempfile
 import speech_recognition as sr
 import threading
 from flask import Flask, request, jsonify
@@ -82,16 +84,18 @@ def listen_thread(shared_data):
 
   if audio:
 
-    # Save the audio file
-    with open('speech.wav', 'wb') as f:
-      f.write(audio.get_wav_data())
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+        temp_file.write(audio.get_wav_data())
+        temp_file_path = temp_file.name  # Get the path to the temporary file
 
-    with open('speech.wav', 'rb') as speech:
-      transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
-      transcription = transcription_result['text']
+    # Read from the temporary file
+    with open(temp_file_path, 'rb') as speech:
+        transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
+        transcription = transcription_result['text']
 
     # Remove the saved audio file
-    os.remove('speech.wav')
+    os.remove(temp_file_path)
 
     # Generate the AI response based on the transcription
     ai_response = get_ai_response(transcription)
@@ -135,27 +139,20 @@ def voice():
   if audio_file.filename == '':
     return jsonify(error="No selected file"), 400
 
-  # Determine the file extension based on content type
-  content_type = audio_file.content_type
-  extension = ".unknown"
-  if "audio/wav" in content_type:
-    extension = ".wav"
-  elif "audio/webm" in content_type:
-    extension = ".webm"
-
-  # Save the uploaded audio file
-  file_path = os.path.join("uploads", "uploaded_audio" + extension)
-  audio_file.save(file_path)
+  # Create a temporary file
+  with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+    audio_file.save(temp_file.name)
+    temp_file_path = temp_file.name
 
   try:
     # Start the monitoring timer
     start_transcription_time = time.time()
 
     # Transcribe the audio file to text
-    with open(file_path, "rb") as file_to_send:
+    with open(temp_file_path, "rb") as file_to_send:
       transcription_result = openai.Audio.transcribe(model="whisper-1", file=file_to_send)
       transcription = transcription_result['text']
-
+    
     # End the transcription monitoring timer
     end_transcription_time = time.time()
     transcription_time = end_transcription_time - start_transcription_time
@@ -164,8 +161,8 @@ def voice():
     # Generate the AI response based on the transcription
     ai_response = get_ai_response(transcription)
 
-    # Remove the saved audio file
-    os.remove(file_path)
+    # Remove the temporary audio file
+    os.remove(temp_file_path)
 
     return jsonify({
       "transcription": transcription,
@@ -173,6 +170,8 @@ def voice():
     })
 
   except Exception as e:
+    # Remove the temporary audio file in case of an exception
+    os.remove(temp_file_path)
     return jsonify(error=str(e)), 500
 
 # Run the Flask app in debug mode

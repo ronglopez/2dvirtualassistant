@@ -1,6 +1,4 @@
 # Import necessary libraries
-from pathlib import Path
-import json
 import time
 
 # Import LangChain
@@ -20,8 +18,13 @@ from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPER
 # Import sentiment analysis
 from sentiment_analysis import analyze_sentiment, update_ai_mood, analyze_sentiment_vader
 
+# Initialize an empty list to store chat messages
+chat_history = []
+
 # Function to generate AI response based on user input
 def get_ai_response(human_input):
+  global chat_history
+  print(chat_history)
 
   # Start the ai response monitoring timer
   start_response_time = time.time()
@@ -56,21 +59,12 @@ def get_ai_response(human_input):
   AI:
   """
 
-  # Check if the file is empty
-  file_path = Path("data") / "messages.json"
-  
-  if file_path.stat().st_size == 0:
-    loaded_messages = []
-  else:
-    with file_path.open("r") as f:
-      loaded_messages = json.load(f)[-MAX_MESSAGES:]
-
-  if loaded_messages:
-    history = ChatMessageHistory(messages=messages_from_dict(loaded_messages))
+  # Check if the chat history is empty
+  if chat_history:
 
     # Separate system and non-system messages
-    system_messages = [msg for msg in loaded_messages if msg["type"] == "system"]
-    non_system_messages = [msg for msg in loaded_messages if msg["type"] != "system"]
+    system_messages = [msg for msg in chat_history if msg["type"] == "system"]
+    non_system_messages = [msg for msg in chat_history if msg["type"] != "system"]
 
     # Calculate the number of non-system messages to keep
     num_non_system_to_keep = MAX_MESSAGES - len(system_messages)
@@ -79,8 +73,10 @@ def get_ai_response(human_input):
     trimmed_non_system_messages = non_system_messages[-num_non_system_to_keep:]
 
     # Combine system and non-system messages
-    loaded_messages = system_messages + trimmed_non_system_messages
+    chat_history = system_messages + trimmed_non_system_messages
 
+    # Create ChatMessageHistory object from the chat history
+    history = ChatMessageHistory(messages=messages_from_dict(chat_history))
 
   # Combine the AI personality description with the prompt template
   prompt = PromptTemplate(input_variables=["history", "human_input"], template=system_template + f"You are will emulate feeling {ai_mood}" + template)
@@ -95,6 +91,8 @@ def get_ai_response(human_input):
   try:
     # Get the AI response
     ai_response = conversation_bufw.predict(human_input=human_input)
+    
+    print(f"AI: {ai_response}")
 
     # Moderate AI response
     ai_response = moderate_output(ai_response)
@@ -104,13 +102,11 @@ def get_ai_response(human_input):
     ai_response_time = end_response_time - start_response_time
     print(f"AI Response Time: {ai_response_time:.2f} seconds")
 
-    # Save messages to memory file
+    # Save messages to memory (in-memory chat history)
     conversation_messages = conversation_bufw.memory.chat_memory.messages
-
     messages = messages_to_dict(conversation_messages)
-
-    with file_path.open("w") as f:
-      json.dump(messages, f, indent=2)
+    chat_history.extend(messages[-MAX_MESSAGES:])
+    print(chat_history)
 
   # Error handling for exceeding OpenAI max token use
   except Exception as e:
