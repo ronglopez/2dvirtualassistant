@@ -9,6 +9,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from elevenlabs import set_api_key
+from flask_socketio import SocketIO, emit
 
 # Import utility files
 from utils import clear_messages_file
@@ -26,6 +27,9 @@ set_api_key(os.environ.get("ELEVEN_API_KEY"))
 # Initialize Flask app and enable Cross-Origin Resource Sharing (CORS)
 app = Flask(__name__)
 CORS(app)
+
+# Initialize SocketIO with the Flask app
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Import AI answer functions
 from ai_response import *
@@ -100,8 +104,8 @@ def listen_thread(shared_data):
     return 
   
 # Endpoint to handle voice-based user prompts
-@app.route('/listen', methods=['POST'])
-def listen():
+@socketio.on('start_listening')
+def handle_start_listening():
   shared_data = {'result': None, 'error': None}
 
   # Create a thread to handle the listening
@@ -113,12 +117,9 @@ def listen():
 
   # Check if the thread finished successfully
   if shared_data['result'] is not None:
-    return jsonify(shared_data['result'])
-  elif shared_data['error'] is not None:
-    return jsonify(error=shared_data['error']), 500
+    emit('listening_result', shared_data['result'])
   else:
-    print("Listening timed out or no audio detected")
-    return jsonify(error="Listening timed out or no audio detected"), 500
+    emit('listening_error', "Listening timed out or no audio detected")
   
 # Endpoint to handle voice-based user prompts
 @app.route('/voice', methods=['POST'])
@@ -176,4 +177,4 @@ def voice():
 
 # Run the Flask app in debug mode
 if __name__ == "__main__":
-  app.run(debug=True)
+  socketio.run(app, debug=True)

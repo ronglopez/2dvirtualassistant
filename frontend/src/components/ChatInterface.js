@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
 import './ChatInterface.css';
+import { io } from 'socket.io-client';
 
 function ChatInterface() {
   const [userInput, setUserInput] = useState('');
@@ -10,8 +11,11 @@ function ChatInterface() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const isListeningRef = useRef(isListening);
   const inputRef = useRef(null);
+  const isListeningRef = useRef(isListening);
+
+  // Create a ref to hold the socket connection
+  const socketRef = useRef(null);
 
   // Handle changes in the text input field
   const handleInputChange = (event) => {
@@ -77,7 +81,7 @@ function ChatInterface() {
   };
 
   const handleListening = () => {
-    setIsListening((prevIsListening) => !prevIsListening);
+    setIsListening((prevIsListening) => !prevIsListening); // Toggle listening state
   };
 
   // Fetch the greeting message when the component mounts
@@ -101,34 +105,39 @@ function ChatInterface() {
     isListeningRef.current = isListening;
   }, [isListening]);
 
-  // Handle the listening loop
+  /// Handle the listening loop
   useEffect(() => {
     if (isListening) {
-      const listenLoop = async () => {
-        try {
-          while (isListeningRef.current) {
+      // Create a Socket.IO connection
+      socketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
 
-            // Make a request to the /listen endpoint
-            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/listen`);
+      // Set up event listeners for the Socket.IO connection
+      socketRef.current.on('listening_result', (data) => {
+        const { transcription, ai_response } = data;
 
-            const { transcription, ai_response } = response.data;
+        // Add the transcribed audio and AI's response to the chat log
+        setChatLog((prevLog) => [...prevLog, { role: 'user', content: transcription }]);
+        setChatLog((prevLog) => [...prevLog, { role: 'assistant', content: ai_response }]);
 
-            // Add the transcribed audio and AI's response to the chat log
-            setChatLog((prevLog) => [...prevLog, { role: 'user', content: transcription },]);
-            setChatLog((prevLog) => [...prevLog, { role: 'assistant', content: ai_response },]);
+        // Emit the 'start_listening' event to restart listening
+        socketRef.current.emit('start_listening');
+      });
 
-            // Optional: Add a delay to prevent continuous rapid polling
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
-        } catch (error) {
-          
-        console.error("Error listening to audio:", error);
+      // Emit the 'start_listening' event to start listening
+      socketRef.current.emit('start_listening');
+    } else if (socketRef.current) {
+      // Disconnect the Socket.IO connection if isListening is false
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    // Clean up the Socket.IO connection when the component is unmounted
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
     };
-
-    listenLoop();
-  }
-}, [isListening]); // This effect runs whenever isListening changes
+  }, [isListening]);
 
   return (
     <div className="chat-interface">
