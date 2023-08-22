@@ -40,9 +40,16 @@ MAX_LEVEL = 10
 MIN_LEVEL = -10
 
 
-#################################
-# CHAT MESSAGE HISTORY SETTINGS #
-#################################
+#######################
+# MAIN CONFIGURATIONS #
+#######################
+
+# Listen function timeout
+LISTEN_TIMEOUT = 10
+
+# Give the listen function enough time to complete
+# This timeout will continue the main thread will Listen is active if it takes too long
+THREAD_TIMEOUT = 20
 
 # Define a constant for the maximum number of messages
 MAX_MESSAGES = 4

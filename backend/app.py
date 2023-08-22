@@ -4,6 +4,7 @@ import atexit
 import os
 import time
 import speech_recognition as sr
+import threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -11,6 +12,9 @@ from elevenlabs import set_api_key
 
 # Import utility files
 from utils import clear_messages_file
+
+# Import settings
+from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT
 
 # Load environment variables from .env file
 load_dotenv("config/.env")
@@ -46,10 +50,9 @@ def ask():
   user_input = request.json.get('input', '')
   ai_response = get_ai_response(user_input)
   return jsonify(ai_response)
-
-# Endpoint to handle voice-based user prompts
-@app.route('/listen', methods=['POST'])
-def listen():
+    
+# Function to handle listening in a separate thread
+def listen_thread(shared_data):
 
   # Check microphone device_index number, make sure to use the correct one
   for index, name in enumerate(sr.Microphone.list_microphone_names()):
@@ -60,35 +63,63 @@ def listen():
   r.dynamic_energy_threshold=False
   r.energy_threshold = 400
 
-  while True:
-    with sr.Microphone(device_index=1) as source:
-      print("\nListening...")
-      r.adjust_for_ambient_noise(source, duration=0.5)
-      audio = r.listen(source)
+  with sr.Microphone(device_index=1) as source:
+    print("\nListening...")
+    r.adjust_for_ambient_noise(source, duration=0.5)
 
-      try:
-        # Save the audio file
-        with open('speech.wav', 'wb') as f:
-          f.write(audio.get_wav_data())
+    try:
+      audio = r.listen(source, timeout=LISTEN_TIMEOUT)
 
-        with open('speech.wav', 'rb') as speech:
-          transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
-          transcription = transcription_result['text']
+    except:
+      print("Audio Timed Out!")
+      return []
 
-        # Generate the AI response based on the transcription
-        ai_response = get_ai_response(transcription)
+  print("No longer listening")
 
-        # Remove the saved audio file
-        os.remove('speech.wav')
+  if audio:
 
-        return jsonify({
-          "transcription": transcription,
-          "ai_response": ai_response
-        })
+    # Save the audio file
+    with open('speech.wav', 'wb') as f:
+      f.write(audio.get_wav_data())
 
-      except Exception as e:
-        return jsonify(error=str(e)), 500
+    with open('speech.wav', 'rb') as speech:
+      transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
+      transcription = transcription_result['text']
 
+    # Remove the saved audio file
+    os.remove('speech.wav')
+
+    # Generate the AI response based on the transcription
+    ai_response = get_ai_response(transcription)
+
+    shared_data['result'] = {
+      "transcription": transcription,
+      "ai_response": ai_response
+    }
+
+    return 
+  
+# Endpoint to handle voice-based user prompts
+@app.route('/listen', methods=['POST'])
+def listen():
+  shared_data = {'result': None, 'error': None}
+
+  # Create a thread to handle the listening
+  t = threading.Thread(target=listen_thread, args=(shared_data,))
+  t.start()
+
+  # Wait for the thread to finish, with a timeout (e.g., 10 seconds)
+  t.join(timeout=THREAD_TIMEOUT)
+
+  # Check if the thread finished successfully
+  if shared_data['result'] is not None:
+    return jsonify(shared_data['result'])
+  elif shared_data['error'] is not None:
+    return jsonify(error=shared_data['error']), 500
+  else:
+    print("Listening timed out or no audio detected")
+    return jsonify(error="Listening timed out or no audio detected"), 500
+  
 # Endpoint to handle voice-based user prompts
 @app.route('/voice', methods=['POST'])
 def voice():
