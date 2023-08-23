@@ -5,14 +5,12 @@ import time
 import tempfile
 import speech_recognition as sr
 import threading
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from elevenlabs import set_api_key
 from flask_socketio import SocketIO, emit
-
-# Import settings
-from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT, LISTEN_KEYWORD_QUIT
 
 # Load environment variables from .env file
 load_dotenv("config/.env")
@@ -28,6 +26,13 @@ CORS(app)
 # Initialize SocketIO with the Flask app
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.info("Starting the application...")
+
+# Import settings
+from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT, LISTEN_KEYWORD_QUIT
+
 # Import AI answer functions
 from ai_response import *
 
@@ -36,6 +41,7 @@ from ai_response import *
 def greeting():
   user_input = "Hello"
   ai_response = get_ai_response(user_input)
+  logging.info(f"Greeting request received: {ai_response}")
   return jsonify(ai_response)
 
 # Endpoint to handle text-based user prompts
@@ -43,6 +49,7 @@ def greeting():
 def ask():
   user_input = request.json.get('input', '')
   ai_response = get_ai_response(user_input)
+  logging.info(f"Ask request received: {user_input} -> {ai_response}")
   return jsonify(ai_response)
     
 # Function to handle listening in a separate thread
@@ -50,7 +57,7 @@ def listen_thread(shared_data):
 
   # Check microphone device_index number, make sure to use the correct one
   for index, name in enumerate(sr.Microphone.list_microphone_names()):
-    print(f"Microphone with name \"{name}\" found for `Microphone(device_index={index})`")
+    logging.info(f"Microphone with name \"{name}\" found for `Microphone(device_index={index})`")
 
   # Initialize Mic
   r = sr.Recognizer()
@@ -58,18 +65,18 @@ def listen_thread(shared_data):
   r.energy_threshold = 400
 
   with sr.Microphone(device_index=1) as source:
-    print("\nListening...")
+    logging.info("\nListening...")
     r.adjust_for_ambient_noise(source, duration=0.5)
 
     try:
       audio = r.listen(source, timeout=LISTEN_TIMEOUT)
 
     except:
-      print("Audio Timed Out!")
+      logging.warning("Audio Timed Out!")
       shared_data['error'] = "Audio Timed Out!"
       return []
 
-  print("No longer listening")
+  logging.warning("No longer listening")
 
   if audio:
 
@@ -159,7 +166,7 @@ def voice():
     # End the transcription monitoring timer
     end_transcription_time = time.time()
     transcription_time = end_transcription_time - start_transcription_time
-    print(f"Audio Transcription Time: {transcription_time:.2f} seconds")
+    logging.info(f"Audio Transcription Time: {transcription_time:.2f} seconds")
 
     # Generate the AI response based on the transcription
     ai_response = get_ai_response(transcription)
@@ -175,8 +182,10 @@ def voice():
   except Exception as e:
     # Remove the temporary audio file in case of an exception
     os.remove(temp_file_path)
+    logging.error("Error processing voice request:", exc_info=True)
     return jsonify(error=str(e)), 500
 
 # Run the Flask app in debug mode
 if __name__ == "__main__":
+  logging.info("Running the Flask app in debug mode...")
   socketio.run(app, debug=True)

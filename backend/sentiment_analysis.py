@@ -1,7 +1,11 @@
 # Import necessary libraries
 import openai
 import nltk
+import logging
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
 from personalities import AI_PERSONALITY
@@ -51,19 +55,14 @@ def update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment):
   # Get sentiment score 
   base_score = SENTIMENT_SCORES[sentiment]
 
-  print(f"User sentiment was: {sentiment}, and scored: {base_score}")
-  print(f"Intensity level was: {intensity}")
-
   # Adjust score based on intensity 
   adjusted_score = base_score * intensity
-  print(f"Sentiment score was: {adjusted_score}")
 
   # Update accumulated sentiment
   accumulated_sentiment += adjusted_score
 
   # Ensure accumulated sentiment is within max and min levels
   accumulated_sentiment = max(MIN_LEVEL, min(accumulated_sentiment, MAX_LEVEL))
-  print(f"Total score is at: {accumulated_sentiment}")
 
   # Update AI mood based on thresholds
   moods = AI_PERSONALITY["moods"]
@@ -78,5 +77,7 @@ def update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment):
     ai_mood = moods["negative"]
   else:
     ai_mood = moods["neutral"]
+
+  logging.info(f"User sentiment: {sentiment}\nIntensity: {intensity}\nAdjusted score: {adjusted_score}\nTotal score: {accumulated_sentiment}\nAI mood: {ai_mood}")
 
   return ai_mood, accumulated_sentiment

@@ -1,5 +1,6 @@
 # Import necessary libraries
 import time
+import logging
 
 # Import LangChain
 from langchain import PromptTemplate, LLMChain
@@ -10,6 +11,9 @@ from langchain.schema import messages_from_dict, messages_to_dict
 # Import utility files
 from utils import split_text, speak_sentences, stream_audio
 from moderation import moderate_output
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
 from personalities import AI_PERSONALITY
@@ -25,6 +29,8 @@ chat_history = []
 def get_ai_response(human_input):
   global chat_history
 
+  logging.info(f"Received human input: {human_input}")
+
   # Start the ai response monitoring timer
   start_response_time = time.time()
 
@@ -35,7 +41,7 @@ def get_ai_response(human_input):
   # user_sentiment = analyze_sentiment(human_input)
   user_sentiment = analyze_sentiment_vader(human_input)
   
-  print(user_sentiment)
+  logging.info(user_sentiment)
 
   # Update AI's mood based on user sentiment
   ai_mood, accumulated_sentiment = update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment)
@@ -91,7 +97,7 @@ def get_ai_response(human_input):
     # Get the AI response
     ai_response = conversation_bufw.predict(human_input=human_input)
     
-    print(f"AI: {ai_response}")
+    logging.info(f"AI response: {ai_response}")
 
     # Moderate AI response
     ai_response = moderate_output(ai_response)
@@ -99,7 +105,7 @@ def get_ai_response(human_input):
     # End the ai response monitoring timer
     end_response_time = time.time()  
     ai_response_time = end_response_time - start_response_time
-    print(f"AI Response Time: {ai_response_time:.2f} seconds")
+    logging.info(f"AI response time: {ai_response_time:.2f} seconds")
 
     # Save messages to memory (in-memory chat history)
     conversation_messages = conversation_bufw.memory.chat_memory.messages
@@ -108,7 +114,7 @@ def get_ai_response(human_input):
 
   # Error handling for exceeding OpenAI max token use
   except Exception as e:
-    print("An error occurred, possibly due to token limit. Clearing message history and restarting.")
+    logging.error("An error occurred, possibly due to token limit. Clearing message history and restarting.", exc_info=True)
 
     return "I'm sorry, I encountered an error. Please try again."
 
@@ -117,20 +123,20 @@ def get_ai_response(human_input):
   start_text_to_speech_time = time.time()
 
   # ElevenLabs text-to-speech functions
-  if ELABS_STREAM:
-    # Use ElevenLabs streaming method for text-to-speech
-    stream_audio(ai_response)
-  else:
-    # Use ElevenLabs sentence-by-sentence method for text-to-speech
-    sentences = split_text(ai_response)
-    speak_sentences(sentences)
+  # if ELABS_STREAM:
+  #   # Use ElevenLabs streaming method for text-to-speech
+  #   stream_audio(ai_response)
+  # else:
+  #   # Use ElevenLabs sentence-by-sentence method for text-to-speech
+  #   sentences = split_text(ai_response)
+  #   speak_sentences(sentences)
 
   # End the text-to-speech monitoring timer
   end_text_to_speech_time = time.time()
   text_to_speech_time = end_text_to_speech_time - start_text_to_speech_time
-  print(f"Text-to-Speech Generation Time: {text_to_speech_time:.2f} seconds")
+  logging.info(f"Text-to-Speech Generation Time: {text_to_speech_time:.2f} seconds")
 
   # Monitor JSON memory file
-  print(f"Number of messages before writing to JSON: {len(messages)}")
+  logging.info(f"Number of messages before writing to JSON: {len(messages)}")
   
   return ai_response

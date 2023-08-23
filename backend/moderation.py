@@ -1,10 +1,14 @@
 # Import necessary libraries
 import openai
+import logging
 
 # Import settings
 from personalities import AI_PERSONALITY
 from better_profanity import profanity
 from config.settings import MOD_REPLACE_RESPONSE
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Optionally, you can load a custom profanity wordlist
 # profanity.load_censor_words(["custom_word1", "custom_word2"])
@@ -52,9 +56,7 @@ def moderate_output(ai_response):
   if flagged:
 
     # Show the violation in terminal
-    print(ai_response)
-    print("Content violates OpenAI's usage policies.")
-    print("Violated categories:", categories)
+    logging.warning(f"AI Resposne: {ai_response}; Content violates OpenAI's usage policies. Violated categories: {categories}")
 
     # Craft new response based on Personality
     moderation = AI_PERSONALITY["ai_moderation"]
@@ -84,7 +86,7 @@ def moderate_output(ai_response):
       ai_response = moderation["violence"]
       
   else:
-    print("Content complies with OpenAI's usage policies.")
+    logging.info("Content complies with OpenAI's usage policies.")
 
   # Uncomment this code block to simulate profanity
   # ai_response = "what the fuck is that? WTF!"

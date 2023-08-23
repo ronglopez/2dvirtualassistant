@@ -2,10 +2,13 @@
 import os
 import requests
 import subprocess
-from pathlib import Path
+import logging
 
 # Import ElevenLabs text-to-speech
 from elevenlabs import generate, play
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
 from config.settings import MIN_SENTENCE_LENGTH, ELABS_MODEL, AI_VOICE, AI_VOICE_ID
@@ -73,6 +76,8 @@ def stream_audio(text, voice=AI_VOICE_ID, model=ELABS_MODEL, api_key=os.environ.
 
   response = requests.post(url, headers=headers, json=data, stream=True)
   response.raise_for_status()
+
+  logging.info(f"Streaming audio for text: {text}")
 
   # use subprocess to pipe the audio data to ffplay and play it
   ffplay_cmd = ['ffplay', '-nodisp', '-autoexit', '-']

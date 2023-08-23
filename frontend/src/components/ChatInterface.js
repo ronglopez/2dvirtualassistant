@@ -1,18 +1,41 @@
 // Import necessary libraries
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useReducer, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
 import './ChatInterface.css';
 import { io } from 'socket.io-client';
 
+// Define Initial State
+const initialState = {
+  userInput: '',
+  chatLog: [],
+  isProcessing: false,
+  isRecording: false,
+  isListening: false,
+};
+
+// Define Reducer Function
+const reducer = (state, action) => {
+  switch (action.type) {
+    case 'SET_USER_INPUT':
+      return { ...state, userInput: action.payload };
+    case 'SET_IS_PROCESSING':
+      return { ...state, isProcessing: action.payload };
+    case 'SET_IS_RECORDING':
+      return { ...state, isRecording: action.payload };
+    case 'SET_IS_LISTENING':
+      return { ...state, isListening: action.payload };
+    case 'ADD_CHAT_ENTRY':
+      return { ...state, chatLog: [...state.chatLog, action.payload] };
+    default:
+      return state;
+  }
+};
+
 function ChatInterface() {
-  const [userInput, setUserInput] = useState('');
-  const [chatLog, setChatLog] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
-  const isListeningRef = useRef(isListening);
+  const isListeningRef = useRef(state.isListening);
   const recordingModeRef = useRef(false);
   const recordingTimeoutRef = useRef(null);
 
@@ -21,7 +44,7 @@ function ChatInterface() {
 
   // Handle changes in the text input field
   const handleInputChange = (event) => {
-    setUserInput(event.target.value);
+    dispatch({ type: 'SET_USER_INPUT', payload: event.target.value });
   };
 
   // Handle the submission of text input to the backend
@@ -29,32 +52,33 @@ function ChatInterface() {
     e.preventDefault();
 
     // Trim whitespace
-    const trimmedInput = userInput.trim();
+    const trimmedInput = state.userInput.trim();
 
-    setIsProcessing(true);
-    
+    dispatch({ type: 'SET_IS_PROCESSING', payload: true });
+
     // Add user's message to chat log
-    setChatLog([...chatLog, { role: 'user', content: trimmedInput }]);
-    
+    dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput } });
+
     try {
       // Send user's trimmed message to backend and get AI's response
       const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: trimmedInput });
       const aiResponse = response.data;
-      
+
       // Add AI's response to chat log
-      setChatLog(prevLog => [...prevLog, { role: 'assistant', content: aiResponse }]);
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: aiResponse } });
+
     } catch (error) {
       console.error("Error communicating with backend:", error);
     }
-    
+
     // Clear the input field
-    setUserInput('');
-    setIsProcessing(false);
+    dispatch({ type: 'SET_USER_INPUT', payload: '' });
+    dispatch({ type: 'SET_IS_PROCESSING', payload: false });
 
     // Focus on the input field after processing is complete
     setTimeout(() => {
       inputRef.current.focus();
-    }, 100);    
+    }, 100);
   };
 
   // Handle the stopping of voice recording
@@ -74,8 +98,9 @@ function ChatInterface() {
         const { transcription, ai_response } = response.data;
         
         // Add the transcribed audio and AI's response to the chat log
-        setChatLog(prevLog => [...prevLog, { role: 'user', content: transcription }]);
-        setChatLog(prevLog => [...prevLog, { role: 'assistant', content: ai_response }]);
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
+
       } catch (error) {
         console.error("Error sending audio to backend:", error);
       }
@@ -83,27 +108,30 @@ function ChatInterface() {
   };
 
   const handleRecording = () => {
-    if (isRecording) {
+    if (state.isRecording) {
+      
       // If currently recording, stop the recording and clear the timeout
-      setIsRecording(false);
+      dispatch({ type: 'SET_IS_RECORDING', payload: false });
+
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
         recordingTimeoutRef.current = null;
       }
     } else {
+
       // If not currently recording, start recording and set the recording mode ref
       recordingModeRef.current = true;
-      setIsRecording(true);
+      dispatch({ type: 'SET_IS_RECORDING', payload: true });
   
       // Set a timeout to stop the recording after 6 seconds and save the timeout ID
       recordingTimeoutRef.current = setTimeout(() => {
-        setIsRecording(false);
+        dispatch({ type: 'SET_IS_RECORDING', payload: false });
       }, 6000);
     }
   };
 
   const handleListening = () => {
-    setIsListening((prevIsListening) => !prevIsListening); // Toggle listening state
+    dispatch({ type: 'SET_IS_LISTENING', payload: !state.isListening }); // Toggle listening state
   };
 
   // Fetch the greeting message when the component mounts
@@ -112,120 +140,120 @@ function ChatInterface() {
       try {
         const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/greeting`);
         const greeting = response.data;
-        
+
         // Add AI's greeting to chat log
-        setChatLog([{ role: 'assistant', content: greeting }]);
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: greeting } });
       } catch (error) {
         console.error("Error fetching greeting from backend:", error);
       }
     };
 
     fetchGreeting();
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
 
   useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
+    isListeningRef.current = state.isListening;
+  }, [state.isListening]);
 
-  /// Handle the listening loop
+  // Handle the listening loop
   useEffect(() => {
-    if (isListening) {
+    if (state.isListening) {
       // Create a Socket.IO connection
       socketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
-
+  
       // Set up event listeners for the Socket.IO connection
       socketRef.current.on('listening_result', (data) => {
         const { transcription, ai_response } = data;
-
+  
         // Add the transcribed audio and AI's response to the chat log
-        setChatLog((prevLog) => [...prevLog, { role: 'user', content: transcription }]);
-        setChatLog((prevLog) => [...prevLog, { role: 'assistant', content: ai_response }]);
-
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
+  
         // Emit the 'start_listening' event to restart listening
         socketRef.current.emit('start_listening');
       });
-
+  
       // Emit the 'start_listening' event to start listening
       socketRef.current.emit('start_listening');
-
+  
       // Quit listening on error
       socketRef.current.on('listening_error', (error) => {
         // Stop listening and update the button state
         console.error("Listening error:", error);
-
-        setIsListening(false);
+  
+        dispatch({ type: 'SET_IS_LISTENING', payload: false });
       });
-
+  
       // Quit listening on quit keyword
       socketRef.current.on('listening_quit', (quit) => {
         const { transcription, ai_response } = quit;
-
+  
         // Stop listening and update the button state
-        setIsListening(false);
+        dispatch({ type: 'SET_IS_LISTENING', payload: false });
         console.error("Listening quit:", quit);
-
+  
         // Add the transcribed audio and AI's response to the chat log
-        setChatLog((prevLog) => [...prevLog, { role: 'user', content: transcription }]);
-        setChatLog((prevLog) => [...prevLog, { role: 'assistant', content: ai_response }]);
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
       });
-
+  
     } else if (socketRef.current) {
       // Disconnect the Socket.IO connection if isListening is false
       socketRef.current.disconnect();
       socketRef.current = null;
     }
-
+  
     // Clean up the Socket.IO connection when the component is unmounted
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
     };
-  }, [isListening]);
+  }, [state.isListening]);  
 
   return (
     <div className="chat-interface">
       {/* Display chat log */}
       <div className="chat-log">
-        {chatLog.map((entry, index) => (
+        {state.chatLog.map((entry, index) => (
           <div key={index} className={`chat-entry ${entry.role}`}>
             <p>{entry.content}</p>
           </div>
         ))}
       </div>
-      
+
       {/* Text input form */}
       <form className="chat-input" onSubmit={handleSubmit}>
         <input
           type="text"
-          value={userInput}
+          value={state.userInput}
           onChange={handleInputChange}
           placeholder="Type your message..."
-          disabled={isProcessing}
+          disabled={state.isProcessing}
           ref={inputRef}
           aria-label="Chat input field"
           autoFocus
         />
-        <button type="submit" disabled={isProcessing || !userInput.trim()} aria-label="Send message">
-          {isProcessing ? "Sending..." : "Send"}
+        <button type="submit" disabled={state.isProcessing || !state.userInput.trim()} aria-label="Send message">
+          {state.isProcessing ? "Sending..." : "Send"}
         </button>
       </form>
-      
+
       {/* Audio recording controls */}
       <div className="audio-controls">
         <ReactMic
-          record={isRecording || isListening}
+          record={state.isRecording || state.isListening}
           className="sound-wave"
           onStop={onStop}
           strokeColor="#000000"
           backgroundColor="#FF4081"
           aria-label="Audio recorder"
         />
-        <button onClick={handleRecording} disabled={isListening} aria-label="Audio recording button">
-          {isRecording ? "Recording..." : "Start Recording"}
+        <button onClick={handleRecording} disabled={state.isListening} aria-label="Audio recording button">
+          {state.isRecording ? "Recording..." : "Start Recording"}
         </button>
-        <button onClick={handleListening} disabled={isRecording} aria-label="Listening mode button">
-          {isListening ? "Listening..." : "Start Listening"}
+        <button onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
+          {state.isListening ? "Listening..." : "Start Listening"}
         </button>
       </div>
     </div>
