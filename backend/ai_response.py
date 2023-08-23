@@ -8,7 +8,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.schema import messages_from_dict, messages_to_dict
 
 # Import utility files
-from utils import clear_messages_file, split_text, speak_sentences, stream_audio
+from utils import split_text, speak_sentences, stream_audio
 from moderation import moderate_output
 
 # Import settings
@@ -16,7 +16,7 @@ from personalities import AI_PERSONALITY
 from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS, ELABS_STREAM
 
 # Import sentiment analysis
-from sentiment_analysis import analyze_sentiment, update_ai_mood, analyze_sentiment_vader
+from sentiment_analysis import update_ai_mood, analyze_sentiment_vader
 
 # Initialize an empty list to store chat messages
 chat_history = []
@@ -24,7 +24,6 @@ chat_history = []
 # Function to generate AI response based on user input
 def get_ai_response(human_input):
   global chat_history
-  print(chat_history)
 
   # Start the ai response monitoring timer
   start_response_time = time.time()
@@ -106,14 +105,11 @@ def get_ai_response(human_input):
     conversation_messages = conversation_bufw.memory.chat_memory.messages
     messages = messages_to_dict(conversation_messages)
     chat_history.extend(messages[-MAX_MESSAGES:])
-    print(chat_history)
 
   # Error handling for exceeding OpenAI max token use
   except Exception as e:
     print("An error occurred, possibly due to token limit. Clearing message history and restarting.")
 
-    # Clear the message history
-    clear_messages_file() 
     return "I'm sorry, I encountered an error. Please try again."
 
   # Convert the AI's text response into audio using ElevenLabs

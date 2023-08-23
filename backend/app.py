@@ -1,7 +1,5 @@
 # Import necessary libraries
-import sys
 import openai
-import atexit
 import os
 import time
 import tempfile
@@ -13,11 +11,8 @@ from dotenv import load_dotenv
 from elevenlabs import set_api_key
 from flask_socketio import SocketIO, emit
 
-# Import utility files
-from utils import clear_messages_file
-
 # Import settings
-from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT
+from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT, LISTEN_KEYWORD_QUIT
 
 # Load environment variables from .env file
 load_dotenv("config/.env")
@@ -35,13 +30,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Import AI answer functions
 from ai_response import *
-
-# Ensure the uploads directory exists for storing audio files
-if not os.path.exists('uploads'):
-  os.makedirs('uploads')
-
-# Register the function to be called on exit
-atexit.register(clear_messages_file)
 
 # Endpoint to provide an initial greeting on page load
 @app.route('/greeting', methods=['GET'])
@@ -78,6 +66,7 @@ def listen_thread(shared_data):
 
     except:
       print("Audio Timed Out!")
+      shared_data['error'] = "Audio Timed Out!"
       return []
 
   print("No longer listening")
@@ -86,13 +75,13 @@ def listen_thread(shared_data):
 
     # Create a temporary file
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-        temp_file.write(audio.get_wav_data())
-        temp_file_path = temp_file.name  # Get the path to the temporary file
+      temp_file.write(audio.get_wav_data())
+      temp_file_path = temp_file.name  # Get the path to the temporary file
 
     # Read from the temporary file
     with open(temp_file_path, 'rb') as speech:
-        transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
-        transcription = transcription_result['text']
+      transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
+      transcription = transcription_result['text']
 
     # Remove the saved audio file
     os.remove(temp_file_path)
@@ -100,10 +89,20 @@ def listen_thread(shared_data):
     # Generate the AI response based on the transcription
     ai_response = get_ai_response(transcription)
 
-    shared_data['result'] = {
-      "transcription": transcription,
-      "ai_response": ai_response
-    }
+    # Quit listen mode if keyword "Quit" is heard by itself
+    transcription_lower = transcription.lower()
+    
+    if transcription_lower == f"{LISTEN_KEYWORD_QUIT}" or f"{LISTEN_KEYWORD_QUIT}." in transcription_lower:
+      shared_data['quit'] = {
+        "transcription": transcription,
+        "ai_response": ai_response
+      }
+      
+    else:
+      shared_data['result'] = {
+        "transcription": transcription,
+        "ai_response": ai_response
+      }
 
     return 
   
@@ -122,6 +121,10 @@ def handle_start_listening():
   # Check if the thread finished successfully
   if shared_data['result'] is not None:
     emit('listening_result', shared_data['result'])
+  elif shared_data['quit'] is not None:
+    emit('listening_quit', shared_data['quit'])  
+  elif shared_data['error'] is not None:
+    emit('listening_error', shared_data['error'])
   else:
     emit('listening_error', "Listening timed out or no audio detected")
   

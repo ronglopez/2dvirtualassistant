@@ -84,10 +84,3 @@ def stream_audio(text, voice=AI_VOICE_ID, model=ELABS_MODEL, api_key=os.environ.
   # close the ffplay process when finished
   ffplay_proc.stdin.close()
   ffplay_proc.wait()
-
-# Function to clear message history
-def clear_messages_file():
-  """Clear the contents of messages.json."""
-  file_path = Path("data") / "messages.json"
-  with file_path.open("w") as f:
-    f.write("")

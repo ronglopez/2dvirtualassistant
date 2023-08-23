@@ -7,6 +7,7 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from personalities import AI_PERSONALITY
 from config.settings import SENTIMENT_SCORES, MAX_LEVEL, MIN_LEVEL
 
+# Sentiment analysis 2.0
 def analyze_sentiment_vader(text):
   nltk.data.path.append('./resources/nltk_data')
   sia = SentimentIntensityAnalyzer()
@@ -21,7 +22,7 @@ def analyze_sentiment_vader(text):
   else:
     return "neutral", 0
 
-# Sentiment analysis
+# Sentiment analysis 1.0
 # todo: Further testing required, sometimes will use other words and that will break the system. This NEEDS to be consistent
 def analyze_sentiment(text):
   

@@ -13,6 +13,8 @@ function ChatInterface() {
   const [isListening, setIsListening] = useState(false);
   const inputRef = useRef(null);
   const isListeningRef = useRef(isListening);
+  const recordingModeRef = useRef(false);
+  const recordingTimeoutRef = useRef(null);
 
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
@@ -26,14 +28,17 @@ function ChatInterface() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Trim whitespace
+    const trimmedInput = userInput.trim();
+
     setIsProcessing(true);
     
     // Add user's message to chat log
-    setChatLog([...chatLog, { role: 'user', content: userInput }]);
+    setChatLog([...chatLog, { role: 'user', content: trimmedInput }]);
     
     try {
-      // Send user's message to backend and get AI's response
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: userInput });
+      // Send user's trimmed message to backend and get AI's response
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: trimmedInput });
       const aiResponse = response.data;
       
       // Add AI's response to chat log
@@ -54,29 +59,46 @@ function ChatInterface() {
 
   // Handle the stopping of voice recording
   const onStop = async (recordedBlob) => {
-    // Create a FormData object to send the audio blob to the backend
-    const formData = new FormData();
-    formData.append('file', recordedBlob.blob);
 
-    try {
-      // Send the audio blob to the backend for transcription and AI response
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/voice`, formData);
-      const { transcription, ai_response } = response.data;
-      
-      // Add the transcribed audio and AI's response to the chat log
-      setChatLog(prevLog => [...prevLog, { role: 'user', content: transcription }]);
-      setChatLog(prevLog => [...prevLog, { role: 'assistant', content: ai_response }]);
-    } catch (error) {
-      console.error("Error sending audio to backend:", error);
+    if (recordingModeRef.current) { // Only process if in recording mode
+      recordingModeRef.current = false;
+
+      // Create a FormData object to send the audio blob to the backend
+      const formData = new FormData();
+      formData.append('file', recordedBlob.blob);
+
+      try {
+
+        // Send the audio blob to the backend for transcription and AI response
+        const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/voice`, formData);
+        const { transcription, ai_response } = response.data;
+        
+        // Add the transcribed audio and AI's response to the chat log
+        setChatLog(prevLog => [...prevLog, { role: 'user', content: transcription }]);
+        setChatLog(prevLog => [...prevLog, { role: 'assistant', content: ai_response }]);
+      } catch (error) {
+        console.error("Error sending audio to backend:", error);
+      }
     }
   };
 
   const handleRecording = () => {
-    setIsRecording(prevIsRecording => !prevIsRecording);
-    if (isRecording) {  // If stopping the recording
-      setTimeout(() => {
+    if (isRecording) {
+      // If currently recording, stop the recording and clear the timeout
+      setIsRecording(false);
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+    } else {
+      // If not currently recording, start recording and set the recording mode ref
+      recordingModeRef.current = true;
+      setIsRecording(true);
+  
+      // Set a timeout to stop the recording after 6 seconds and save the timeout ID
+      recordingTimeoutRef.current = setTimeout(() => {
         setIsRecording(false);
-      }, 6000);  // Stop recording after 6 seconds
+      }, 6000);
     }
   };
 
@@ -125,6 +147,28 @@ function ChatInterface() {
 
       // Emit the 'start_listening' event to start listening
       socketRef.current.emit('start_listening');
+
+      // Quit listening on error
+      socketRef.current.on('listening_error', (error) => {
+        // Stop listening and update the button state
+        console.error("Listening error:", error);
+
+        setIsListening(false);
+      });
+
+      // Quit listening on quit keyword
+      socketRef.current.on('listening_quit', (quit) => {
+        const { transcription, ai_response } = quit;
+
+        // Stop listening and update the button state
+        setIsListening(false);
+        console.error("Listening quit:", quit);
+
+        // Add the transcribed audio and AI's response to the chat log
+        setChatLog((prevLog) => [...prevLog, { role: 'user', content: transcription }]);
+        setChatLog((prevLog) => [...prevLog, { role: 'assistant', content: ai_response }]);
+      });
+
     } else if (socketRef.current) {
       // Disconnect the Socket.IO connection if isListening is false
       socketRef.current.disconnect();
@@ -159,7 +203,8 @@ function ChatInterface() {
           placeholder="Type your message..."
           disabled={isProcessing}
           ref={inputRef}
-          aria-label="Chat input field"  // <-- Added for accessibility
+          aria-label="Chat input field"
+          autoFocus
         />
         <button type="submit" disabled={isProcessing || !userInput.trim()} aria-label="Send message">
           {isProcessing ? "Sending..." : "Send"}
@@ -169,17 +214,17 @@ function ChatInterface() {
       {/* Audio recording controls */}
       <div className="audio-controls">
         <ReactMic
-          record={isRecording}
+          record={isRecording || isListening}
           className="sound-wave"
           onStop={onStop}
           strokeColor="#000000"
           backgroundColor="#FF4081"
           aria-label="Audio recorder"
         />
-        <button onClick={handleRecording} aria-label="Audio recording button">
+        <button onClick={handleRecording} disabled={isListening} aria-label="Audio recording button">
           {isRecording ? "Recording..." : "Start Recording"}
         </button>
-        <button onClick={handleListening} aria-label="Listening mode button">
+        <button onClick={handleListening} disabled={isRecording} aria-label="Listening mode button">
           {isListening ? "Listening..." : "Start Listening"}
         </button>
       </div>

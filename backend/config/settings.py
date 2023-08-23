@@ -44,6 +44,9 @@ MIN_LEVEL = -10
 # MAIN CONFIGURATIONS #
 #######################
 
+# Listen mode quit keyword (best to use a word with more than 2 sylables + keep it lowercase)
+LISTEN_KEYWORD_QUIT = "goodbye"
+
 # Listen function timeout
 LISTEN_TIMEOUT = 10
 
