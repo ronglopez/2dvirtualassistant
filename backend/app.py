@@ -53,18 +53,17 @@ def ask():
   return jsonify(ai_response)
     
 # Function to handle listening in a separate thread
-def listen_thread(shared_data):
+def listen_thread(shared_data, device_index):
 
   # Check microphone device_index number, make sure to use the correct one
-  for index, name in enumerate(sr.Microphone.list_microphone_names()):
-    logging.info(f"Microphone with name \"{name}\" found for `Microphone(device_index={index})`")
+  logging.info(f"Microphone number: {device_index})")
 
   # Initialize Mic
   r = sr.Recognizer()
   r.dynamic_energy_threshold=False
   r.energy_threshold = 400
 
-  with sr.Microphone(device_index=1) as source:
+  with sr.Microphone(device_index=device_index) as source:
     logging.info("\nListening...")
     r.adjust_for_ambient_noise(source, duration=0.5)
 
@@ -115,11 +114,12 @@ def listen_thread(shared_data):
   
 # Endpoint to handle voice-based user prompts
 @socketio.on('start_listening')
-def handle_start_listening():
+def handle_start_listening(data):
+  device_index = data.get('device_index', 1)  # Default to 1 if not provided
   shared_data = {'result': None, 'error': None}
 
   # Create a thread to handle the listening
-  t = threading.Thread(target=listen_thread, args=(shared_data,))
+  t = threading.Thread(target=listen_thread, args=(shared_data, device_index))
   t.start()
 
   # Wait for the thread to finish, with a timeout (e.g., 10 seconds)

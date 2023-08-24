@@ -1,5 +1,5 @@
 // Import necessary libraries
-import React, { useReducer, useEffect, useRef } from 'react';
+import React, { useReducer, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
 import './ChatInterface.css';
@@ -32,12 +32,19 @@ const reducer = (state, action) => {
   }
 };
 
+// Main Chat Functions
 function ChatInterface() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
   const isListeningRef = useRef(state.isListening);
   const recordingModeRef = useRef(false);
   const recordingTimeoutRef = useRef(null);
+
+  // State to hold available devices
+  const [devices, setDevices] = useState([]);
+
+  // State to hold selected device index
+  const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(1); // Default to 1
 
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
@@ -134,6 +141,30 @@ function ChatInterface() {
     dispatch({ type: 'SET_IS_LISTENING', payload: !state.isListening }); // Toggle listening state
   };
 
+  // Handle device selection
+  const handleDeviceChange = (event) => {
+    const index = event.target.value;
+    setSelectedDeviceIndex(index);
+  };
+
+  // Fetch available devices when the component mounts
+  useEffect(() => {
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices()
+        .then(deviceList => {
+          // Filter for audio input devices (microphones)
+        const microphones = deviceList.filter(device => device.kind === 'audioinput');
+        setDevices(microphones);
+      })
+      .catch(error => {
+        console.error('Error fetching devices:', error);
+      });
+    } else {
+      console.warn('Media devices are not supported in this browser.');
+      // You can also set a state here to notify the user or disable certain features
+    }
+  }, []);
+
   // Fetch the greeting message when the component mounts
   useEffect(() => {
     const fetchGreeting = async () => {
@@ -169,12 +200,12 @@ function ChatInterface() {
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
   
-        // Emit the 'start_listening' event to restart listening
-        socketRef.current.emit('start_listening');
+        // Emit the 'start_listening' event to start listening with the selected device index
+      socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
       });
   
-      // Emit the 'start_listening' event to start listening
-      socketRef.current.emit('start_listening');
+      // Emit the 'start_listening' event to start listening with the selected device index
+      socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
   
       // Quit listening on error
       socketRef.current.on('listening_error', (error) => {
@@ -204,15 +235,23 @@ function ChatInterface() {
     }
   
     // Clean up the Socket.IO connection when the component is unmounted
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, [state.isListening]);  
-
+  return () => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+  };
+}, [state.isListening, selectedDeviceIndex]);
+  
   return (
     <div className="chat-interface">
+      {/* Device selection dropdown */}
+      <select onChange={handleDeviceChange}>
+        {devices.map((device, index) => (
+          <option key={device.deviceId} value={index}>
+            {device.label}
+          </option>
+        ))}
+      </select>
       {/* Display chat log */}
       <div className="chat-log">
         {state.chatLog.map((entry, index) => (
@@ -261,3 +300,4 @@ function ChatInterface() {
 }
 
 export default ChatInterface;
+
