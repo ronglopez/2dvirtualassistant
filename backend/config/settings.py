@@ -10,7 +10,7 @@ CHAR_LENGTH = 100
 MIN_SENTENCE_LENGTH = 50
 
 # ChatOpenAI Settings
-TEMPERATURE = 0.9
+TEMPERATURE = 0.9 # Set from 0 to 1 (the closer to 1 the more creative the responses)
 OPENAI_MODEL = "gpt-3.5-turbo"
 MAX_TOKENS = 50
 
@@ -48,14 +48,14 @@ MIN_LEVEL = -10
 LISTEN_KEYWORD_QUIT = "goodbye"
 
 # Listen function timeout
-LISTEN_TIMEOUT = 10
+LISTEN_TIMEOUT = 30
 
 # Give the listen function enough time to complete
 # This timeout will continue the main thread will Listen is active if it takes too long
-THREAD_TIMEOUT = 20
+THREAD_TIMEOUT = 60
 
 # Define a constant for the maximum number of messages
-MAX_MESSAGES = 4
+MAX_MESSAGES = 6
 
 #######################
 # MODERATION SETTINGS #

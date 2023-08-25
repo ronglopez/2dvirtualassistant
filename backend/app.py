@@ -39,15 +39,24 @@ from ai_response import *
 # Endpoint to provide an initial greeting on page load
 @app.route('/greeting', methods=['GET'])
 def greeting():
-  user_input = "Hello"
-  ai_response = get_ai_response(user_input)
+  user_input = "Give the Usera warm welcome"
+  ai_response = get_ai_response(user_input, 'system')
   logging.info(f"Greeting request received: {ai_response}")
+  return jsonify(ai_response)
+
+# Endpoint to provide a periodic message
+@app.route('/periodic_message', methods=['GET'])
+def periodic_message():
+  system_input = "Say something to make conversation"
+  message_role = "system"
+  ai_response = get_ai_response(system_input, message_role)
+  logging.info(f"Banter request received: {ai_response}")
   return jsonify(ai_response)
 
 # Endpoint to handle text-based user prompts
 @app.route('/ask', methods=['POST'])
 def ask():
-  user_input = request.json.get('input', '')
+  user_input = request.json.get('input', 'user')
   ai_response = get_ai_response(user_input)
   logging.info(f"Ask request received: {user_input} -> {ai_response}")
   return jsonify(ai_response)
@@ -93,7 +102,7 @@ def listen_thread(shared_data, device_index):
     os.remove(temp_file_path)
 
     # Generate the AI response based on the transcription
-    ai_response = get_ai_response(transcription)
+    ai_response = get_ai_response(transcription, 'user')
 
     # Quit listen mode if keyword "Quit" is heard by itself
     transcription_lower = transcription.lower()
@@ -169,7 +178,7 @@ def voice():
     logging.info(f"Audio Transcription Time: {transcription_time:.2f} seconds")
 
     # Generate the AI response based on the transcription
-    ai_response = get_ai_response(transcription)
+    ai_response = get_ai_response(transcription, 'user')
 
     # Remove the temporary audio file
     os.remove(temp_file_path)

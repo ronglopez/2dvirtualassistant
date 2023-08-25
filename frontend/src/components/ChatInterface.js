@@ -147,6 +147,26 @@ function ChatInterface() {
     setSelectedDeviceIndex(index);
   };
 
+  // Function to fetch a periodic message from the backend
+  const fetchPeriodicMessage = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/periodic_message`);
+      const message = response.data;
+
+      // Add the message to the chat log
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message } });
+    } catch (error) {
+      console.error("Error fetching periodic message from backend:", error);
+    }
+  };
+
+  // Set up an interval to call fetchPeriodicMessage every 15 seconds
+  useEffect(() => {
+    const intervalId = setInterval(fetchPeriodicMessage, 5000);
+
+    return () => clearInterval(intervalId); // Clear interval on unmount
+  }, []);
+
   // Fetch available devices when the component mounts
   useEffect(() => {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {

@@ -1,12 +1,7 @@
 # Import necessary libraries
 import time
 import logging
-
-# Import LangChain
-from langchain import PromptTemplate, LLMChain
-from langchain.memory import ConversationBufferWindowMemory, ChatMessageHistory
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import messages_from_dict, messages_to_dict
+import openai
 
 # Import utility files
 from utils import split_text, speak_sentences, stream_audio
@@ -26,77 +21,87 @@ from sentiment_analysis import update_ai_mood, analyze_sentiment_vader
 chat_history = []
 
 # Function to generate AI response based on user input
-def get_ai_response(human_input):
-  global chat_history
+def get_ai_response(message_input, message_role=None):
+  
+  # Global variables
+  global chat_history, ai_mood, accumulated_sentiment
 
-  logging.info(f"Received human input: {human_input}")
+  # Default to user message if not defined by route
+  if message_role is None:
+    message_role="user"
+
+  logging.info(f"Received {message_role} input: {message_input}")
 
   # Start the ai response monitoring timer
   start_response_time = time.time()
 
-  # Sentiment Analysis of User Input
-  global ai_mood, accumulated_sentiment
+  # Sentiment Analysis if user sent message
+  if message_role == "user":
 
-  # Select using VADER or non VADER analysis
-  # user_sentiment = analyze_sentiment(human_input)
-  user_sentiment = analyze_sentiment_vader(human_input)
-  
-  logging.info(user_sentiment)
+    # Select using VADER or non VADER analysis
+    # user_sentiment = analyze_sentiment(message_input)
+    user_sentiment = analyze_sentiment_vader(message_input)
+    
+    logging.info(user_sentiment)
 
-  # Update AI's mood based on user sentiment
-  ai_mood, accumulated_sentiment = update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment)
+    # Update AI's mood based on user sentiment
+    ai_mood, accumulated_sentiment = update_ai_mood(user_sentiment, ai_mood, accumulated_sentiment)
 
-  # Initialize LangChain with the specified model and parameters
-  llm = ChatOpenAI(temperature=TEMPERATURE, model_name=OPENAI_MODEL, max_tokens=MAX_TOKENS)
+  # Initialize chat messages
+  messages = []
 
-  history = ChatMessageHistory()
+  # Add AI background/personality and ai mood to system template
+  system_template = f"{AI_PERSONALITY['description']}\n\nYou will emulate feeling {ai_mood}\n\nChat History:"
+  logging.info(f"System template: {system_template}")
 
-  # Add AI background/persoality
-  system_template = AI_PERSONALITY["description"]
+  # Add the system template to messages
+  messages.append({"role": "system", "content": system_template})
+  logging.info("System template added")
 
-  # Define the prompt template with placeholders for history and user input
-  template = """
-  
-  Chat History:
-  {history}
+  # Format message going to AI bot
+  message_input_template = message_input
+  logging.info(f"Message template: {message_input_template}")
 
-  Human: {human_input}
-  AI:
-  """
-
-  # Check if the chat history is empty
+  # Set chat history
   if chat_history:
+    logging.info("Chat history detected")
+    logging.info(f"Chat history before AI response: {chat_history}")
 
-    # Separate system and non-system messages
-    system_messages = [msg for msg in chat_history if msg["type"] == "system"]
-    non_system_messages = [msg for msg in chat_history if msg["type"] != "system"]
-
-    # Calculate the number of non-system messages to keep
-    num_non_system_to_keep = MAX_MESSAGES - len(system_messages)
+    # Non-system messages
+    non_system_messages = [msg for msg in chat_history if msg["role"] != "system"]
     
     # Trim non-system messages
-    trimmed_non_system_messages = non_system_messages[-num_non_system_to_keep:]
+    trimmed_non_system_messages = non_system_messages[-MAX_MESSAGES:]
 
     # Combine system and non-system messages
-    chat_history = system_messages + trimmed_non_system_messages
+    chat_history_str = f"Chat History:\n{trimmed_non_system_messages}"
+    logging.info("Chat history trimmed")
+    logging.info(f"Chat history after trim: {chat_history_str}")
 
-    # Create ChatMessageHistory object from the chat history
-    history = ChatMessageHistory(messages=messages_from_dict(chat_history))
+    # Add chat history to messages
+    messages += trimmed_non_system_messages # Use += to concatenate the lists
+    logging.info("Chat history added")
 
-  # Combine the AI personality description with the prompt template
-  prompt = PromptTemplate(input_variables=["history", "human_input"], template=system_template + f"You are will emulate feeling {ai_mood}" + template)
+  # Add formatted message to AI bot into messages 
+  messages.append({"role": message_role, "content": message_input_template})
+  logging.info("Inputted message added")
+  logging.info(f"Messages: {messages}")
 
-  conversation_bufw = LLMChain(   # - todo: This should actually be ConversationChain, but bug seems to be breaking at this moment
-    llm=llm,
-    prompt=prompt,
-    memory=ConversationBufferWindowMemory(chat_memory=history, k=MAX_MESSAGES),
-    verbose=True,
+  # Use OpenAI's model to predict sentiment
+  ai_response = openai.ChatCompletion.create(
+    model=OPENAI_MODEL,
+    temperature=TEMPERATURE,
+    max_tokens=MAX_TOKENS,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0,
+    messages=messages
   )
 
   try:
-    # Get the AI response
-    ai_response = conversation_bufw.predict(human_input=human_input)
     
+    # Get the AI response
+    ai_response = ai_response["choices"][0]["message"]["content"]
     logging.info(f"AI response: {ai_response}")
 
     # Moderate AI response
@@ -108,9 +113,14 @@ def get_ai_response(human_input):
     logging.info(f"AI response time: {ai_response_time:.2f} seconds")
 
     # Save messages to memory (in-memory chat history)
-    conversation_messages = conversation_bufw.memory.chat_memory.messages
-    messages = messages_to_dict(conversation_messages)
-    chat_history.extend(messages[-MAX_MESSAGES:])
+    chat_history.append({"role": message_role, "content": message_input})
+    chat_history.append({"role": "assistant", "content": ai_response})
+
+    # Trim the chat history to only keep the latest MAX_MESSAGES
+    chat_history = chat_history[-MAX_MESSAGES:]
+
+    logging.info("Saving messages to chat history and trimming to keep the max allowed")
+    logging.info(f"New Chat History: {chat_history}")
 
   # Error handling for exceeding OpenAI max token use
   except Exception as e:
