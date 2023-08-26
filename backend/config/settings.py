@@ -48,11 +48,10 @@ MIN_LEVEL = -10
 LISTEN_KEYWORD_QUIT = "goodbye"
 
 # Listen function timeout
-LISTEN_TIMEOUT = 30
+LISTEN_PERIODIC_MESSAGE_TIMER = 15
 
-# Give the listen function enough time to complete
-# This timeout will continue the main thread will Listen is active if it takes too long
-THREAD_TIMEOUT = 60
+# Listen function timeout
+LISTEN_TIMEOUT = 30
 
 # Define a constant for the maximum number of messages
 MAX_MESSAGES = 6

@@ -43,8 +43,8 @@ function ChatInterface() {
   const [isTimerPaused, setIsTimerPaused] = useState(false);
 
   // Timers
-  const PERIODIC_MESSAGE_INTERVAL = 10000; // seconds in the thousands, ie. 5 seconds = 5000
-  const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 5 seconds = 5000
+  const PERIODIC_MESSAGE_INTERVAL = 15000; // seconds in the thousands, ie. 15 seconds = 15000
+  const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
   // State to hold available devices
   const [devices, setDevices] = useState([]);
@@ -176,7 +176,16 @@ function ChatInterface() {
 
   // Handle the listening state
   const handleListening = () => {
-    dispatch({ type: 'SET_IS_LISTENING', payload: !state.isListening }); // Toggle listening state
+    if (state.isListening) {
+      // If currently listening, stop listening and emit 'stop_listening' event
+      dispatch({ type: 'SET_IS_LISTENING', payload: false });
+      if (socketRef.current) {
+        socketRef.current.emit('stop_listening');
+      }
+    } else {
+      // If not currently listening, start listening
+      dispatch({ type: 'SET_IS_LISTENING', payload: !state.isListening });
+    }
   };
 
   // Handle device selection
@@ -186,7 +195,7 @@ function ChatInterface() {
   };
 
   // Function to fetch a periodic message from the backend
-  const fetchPeriodicMessage = useCallback(async () => { // Wrapped in useCallback
+  const fetchPeriodicMessage = useCallback(async () => {
     if (isTimerPaused) {
       console.log("Periodic message timer is paused.");
       return;
@@ -258,6 +267,7 @@ function ChatInterface() {
     fetchGreeting();
   }, []);
 
+  // Handle the listening state
   useEffect(() => {
     isListeningRef.current = state.isListening;
   }, [state.isListening]);
@@ -278,27 +288,34 @@ function ChatInterface() {
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
   
         // Emit the 'start_listening' event to start listening with the selected device index
-      socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
+        socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
+      });
+
+      socketRef.current.on('listening_periodic_message', (message) => {
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message } });
+
+        // Emit the 'start_listening' event to start listening with the selected device index
+        socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
       });
   
       // Emit the 'start_listening' event to start listening with the selected device index
       socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
-  
+
       // Quit listening on error
       socketRef.current.on('listening_error', (error) => {
+
         // Stop listening and update the button state
-        console.error("Listening error:", error);
-  
         dispatch({ type: 'SET_IS_LISTENING', payload: false });
+        console.error("Listening error:", error);
       });
   
       // Quit listening on quit keyword
-      socketRef.current.on('listening_quit', (quit) => {
-        const { transcription, ai_response } = quit;
+      socketRef.current.on('listening_quit', (data) => {
+        const { transcription, ai_response } = data;
   
         // Stop listening and update the button state
         dispatch({ type: 'SET_IS_LISTENING', payload: false });
-        console.error("Listening quit:", quit);
+        console.error("Listening quit:", data);
   
         // Add the transcribed audio and AI's response to the chat log
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
@@ -307,6 +324,7 @@ function ChatInterface() {
   
       } else if (socketRef.current) {
         // Disconnect the Socket.IO connection if isListening is false
+        socketRef.current.emit('stop_listening');
         socketRef.current.disconnect();
         socketRef.current = null;
       }

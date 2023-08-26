@@ -146,7 +146,7 @@ def get_ai_response(message_input, message_role=None):
   text_to_speech_time = end_text_to_speech_time - start_text_to_speech_time
   logging.info(f"Text-to-Speech Generation Time: {text_to_speech_time:.2f} seconds")
 
-  # Monitor JSON memory file
-  logging.info(f"Number of messages before writing to JSON: {len(messages)}")
+  # Monitor memory variable
+  logging.info(f"Number of messages before writing to memory: {len(chat_history)}")
   
   return ai_response
