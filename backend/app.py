@@ -2,9 +2,10 @@
 import openai
 import os
 import time
+from time import sleep
 import tempfile
 import speech_recognition as sr
-import threading
+from threading import Timer
 import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -36,10 +37,14 @@ from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT, LISTEN_KEYWORD_QUIT
 # Import AI answer functions
 from ai_response import *
 
+# Set shared data variable for listen mode
+shared_data = {'result': None, 'error': None, 'quit': None}
+background_thread_end = False
+
 # Endpoint to provide an initial greeting on page load
 @app.route('/greeting', methods=['GET'])
 def greeting():
-  user_input = "Give the Usera warm welcome"
+  user_input = "Give the User a warm welcome"
   ai_response = get_ai_response(user_input, 'system')
   logging.info(f"Greeting request received: {ai_response}")
   return jsonify(ai_response)
@@ -61,88 +66,125 @@ def ask():
   logging.info(f"Ask request received: {user_input} -> {ai_response}")
   return jsonify(ai_response)
     
-# Function to handle listening in a separate thread
-def listen_thread(shared_data, device_index):
+# Background listening thread
+def callback(recognizer, speech):
+  global shared_data, background_thread_end  # Declare it as global to modify it
 
-  # Check microphone device_index number, make sure to use the correct one
-  logging.info(f"Microphone number: {device_index})")
-
-  # Initialize Mic
-  r = sr.Recognizer()
-  r.dynamic_energy_threshold=False
-  r.energy_threshold = 400
-
-  with sr.Microphone(device_index=device_index) as source:
-    logging.info("\nListening...")
-    r.adjust_for_ambient_noise(source, duration=0.5)
-
-    try:
-      audio = r.listen(source, timeout=LISTEN_TIMEOUT)
-
-    except:
-      logging.warning("Audio Timed Out!")
-      shared_data['error'] = "Audio Timed Out!"
-      return []
-
-  logging.warning("No longer listening")
-
-  if audio:
+  logging.info("==========================")
+  logging.info("User voice input heard")
+  
+  try:
 
     # Create a temporary file
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-      temp_file.write(audio.get_wav_data())
-      temp_file_path = temp_file.name  # Get the path to the temporary file
+    logging.info("Creating temp file")
 
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+      temp_file.write(speech.get_wav_data())
+      temp_file_path = temp_file.name  # Get the path to the temporary file
+      logging.info("Temp file created successfully")
+      logging.info("Reading temp file")
+    
     # Read from the temporary file
     with open(temp_file_path, 'rb') as speech:
       transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
       transcription = transcription_result['text']
-
+      logging.info("Temp file read successfully")
+    
     # Remove the saved audio file
     os.remove(temp_file_path)
-
+    logging.info("Temp file removed successfully")
+    
     # Generate the AI response based on the transcription
+    logging.info("Passing transcript to AI")
+    logging.info("********************")
     ai_response = get_ai_response(transcription, 'user')
+    logging.info("********************")
 
-    # Quit listen mode if keyword "Quit" is heard by itself
+    # Quit listen mode if keyword LISTEN_KEYWORD_QUIT is heard by itself
+    logging.info("Transcription received")
     transcription_lower = transcription.lower()
     
     if transcription_lower == f"{LISTEN_KEYWORD_QUIT}" or f"{LISTEN_KEYWORD_QUIT}." in transcription_lower:
+      logging.info("Quitting Listen Mode")
       shared_data['quit'] = {
         "transcription": transcription,
         "ai_response": ai_response
       }
       
     else:
+      logging.info("Passing back results")
       shared_data['result'] = {
         "transcription": transcription,
         "ai_response": ai_response
       }
 
-    return 
-  
+  except:
+    logging.error("Could not request results from Google Speech Recognition service")
+
+  # End background thread loop
+  background_thread_end = True
+  logging.info("Background Thread Ended!")
+
 # Endpoint to handle voice-based user prompts
 @socketio.on('start_listening')
 def handle_start_listening(data):
-  device_index = data.get('device_index', 1)  # Default to 1 if not provided
-  shared_data = {'result': None, 'error': None}
+  global shared_data, background_thread_end
 
-  # Create a thread to handle the listening
-  t = threading.Thread(target=listen_thread, args=(shared_data, device_index))
-  t.start()
+  # Reset shared_data
+  shared_data = {'result': None, 'error': None, 'quit': None}
 
-  # Wait for the thread to finish, with a timeout (e.g., 10 seconds)
-  t.join(timeout=THREAD_TIMEOUT)
+  # Default to 1 if not provided
+  device_index = data.get('device_index', 1) 
 
-  # Check if the thread finished successfully
-  if shared_data['result'] is not None:
-    emit('listening_result', shared_data['result'])
-  elif shared_data['quit'] is not None:
-    emit('listening_quit', shared_data['quit'])  
-  elif shared_data['error'] is not None:
-    emit('listening_error', shared_data['error'])
-  else:
-    emit('listening_error', "Listening timed out or no audio detected")
+   # Check microphone device_index number, make sure to use the correct one
+  logging.info(f"Microphone number: {device_index})")
+
+  # Initialize Mic
+  r = sr.Recognizer()
+  r.dynamic_energy_threshold=False # set to 'True', the program will continuously try to re-adjust the energy threshold to match the environment based on the ambient noise level at that time.
+  r.energy_threshold = 400 # 300 is the default value of the SR library
+  mic = sr.Microphone()
+
+  with sr.Microphone(device_index=device_index) as source:
+    logging.info("Adjusting audio for ambience...")
+    r.adjust_for_ambient_noise(source, duration=0.5)
+
+  logging.info("==========================")
+  logging.info("Listening in background...")
+  stop_listening = r.listen_in_background(mic, callback)
+  logging.info("==========================")
+
+  while True:
+    time.sleep(0.1)
+
+    if background_thread_end:
+
+      # Check if the thread finished successfully
+      if shared_data['result'] is not None:
+        logging.info("==========================")
+        logging.info("Shared data received")
+        socketio.emit('listening_result', shared_data['result'])
+        break
+
+      elif shared_data['quit'] is not None:
+        socketio.emit('listening_quit', shared_data['quit'])
+        break
+
+      elif shared_data['error'] is not None:
+        socketio.emit('listening_error', shared_data['error'])
+        break
+        
+      else:
+        socketio.emit('listening_error', "Listening timed out or no audio detected")
+        break
+  
+  # Stop listening mode
+  stop_listening(wait_for_stop=False)
+
+  # Reset Background Thread flag
+  background_thread_end = False
+  logging.info("Shared data sent")
+  logging.info("==========================")
   
 # Endpoint to handle voice-based user prompts
 @app.route('/voice', methods=['POST'])
