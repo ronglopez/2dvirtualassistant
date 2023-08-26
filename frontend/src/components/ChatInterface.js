@@ -1,5 +1,5 @@
 // Import necessary libraries
-import React, { useReducer, useEffect, useRef, useState } from 'react';
+import React, { useReducer, useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
 import './ChatInterface.css';
@@ -39,6 +39,12 @@ function ChatInterface() {
   const isListeningRef = useRef(state.isListening);
   const recordingModeRef = useRef(false);
   const recordingTimeoutRef = useRef(null);
+  const periodicMessageIntervalRef = useRef(null);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
+
+  // Timers
+  const PERIODIC_MESSAGE_INTERVAL = 10000; // seconds in the thousands, ie. 5 seconds = 5000
+  const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 5 seconds = 5000
 
   // State to hold available devices
   const [devices, setDevices] = useState([]);
@@ -58,6 +64,16 @@ function ChatInterface() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Clear the existing interval and set up a new one
+    console.log("Clearing and resetting periodic message interval due to text input...");
+    clearInterval(periodicMessageIntervalRef.current);
+
+    // Pause the periodic message timer
+    console.log("Pausing periodic message timer due to recording...");
+    setIsTimerPaused(true);
+
+    periodicMessageIntervalRef.current = setInterval(fetchPeriodicMessage, PERIODIC_MESSAGE_INTERVAL);
+
     // Trim whitespace
     const trimmedInput = state.userInput.trim();
 
@@ -73,6 +89,10 @@ function ChatInterface() {
 
       // Add AI's response to chat log
       dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: aiResponse } });
+
+      // Resume the periodic message timer
+      console.log("Resuming periodic message timer after AI response...");
+      setIsTimerPaused(false);
 
     } catch (error) {
       console.error("Error communicating with backend:", error);
@@ -108,15 +128,37 @@ function ChatInterface() {
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
 
+        // Resume the periodic message timer
+        console.log("Resuming periodic message timer after AI response...");
+        setIsTimerPaused(false);
+
       } catch (error) {
         console.error("Error sending audio to backend:", error);
       }
     }
   };
 
+  // Handle the voice recording
   const handleRecording = () => {
-    if (state.isRecording) {
-      
+
+    // Check if the user is starting to record
+    if (!state.isRecording) {
+
+      // Pause the periodic message timer
+      console.log("Pausing periodic message timer due to recording...");
+      setIsTimerPaused(true);
+
+      // If not currently recording, start recording and set the recording mode ref
+      recordingModeRef.current = true;
+      dispatch({ type: 'SET_IS_RECORDING', payload: true });
+
+      // Set a timeout to stop the recording after 10 seconds and save the timeout ID
+      recordingTimeoutRef.current = setTimeout(() => {
+        dispatch({ type: 'SET_IS_RECORDING', payload: false });
+      }, RECORD_MESSAGE_TIMEOUT);
+
+    } else {
+
       // If currently recording, stop the recording and clear the timeout
       dispatch({ type: 'SET_IS_RECORDING', payload: false });
 
@@ -124,19 +166,15 @@ function ChatInterface() {
         clearTimeout(recordingTimeoutRef.current);
         recordingTimeoutRef.current = null;
       }
-    } else {
 
-      // If not currently recording, start recording and set the recording mode ref
-      recordingModeRef.current = true;
-      dispatch({ type: 'SET_IS_RECORDING', payload: true });
-  
-      // Set a timeout to stop the recording after 6 seconds and save the timeout ID
-      recordingTimeoutRef.current = setTimeout(() => {
-        dispatch({ type: 'SET_IS_RECORDING', payload: false });
-      }, 6000);
+      // Clear the existing interval and set up a new one for periodic messages
+      console.log("Clearing and resetting periodic message interval due to recording...");
+      clearInterval(periodicMessageIntervalRef.current);
+      periodicMessageIntervalRef.current = setInterval(fetchPeriodicMessage, PERIODIC_MESSAGE_INTERVAL);
     }
   };
 
+  // Handle the listening state
   const handleListening = () => {
     dispatch({ type: 'SET_IS_LISTENING', payload: !state.isListening }); // Toggle listening state
   };
@@ -148,7 +186,14 @@ function ChatInterface() {
   };
 
   // Function to fetch a periodic message from the backend
-  const fetchPeriodicMessage = async () => {
+  const fetchPeriodicMessage = useCallback(async () => { // Wrapped in useCallback
+    if (isTimerPaused) {
+      console.log("Periodic message timer is paused.");
+      return;
+    }
+    
+    console.log("Fetching periodic message...");
+
     try {
       const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/periodic_message`);
       const message = response.data;
@@ -158,14 +203,25 @@ function ChatInterface() {
     } catch (error) {
       console.error("Error fetching periodic message from backend:", error);
     }
-  };
+  }, [isTimerPaused]);
 
-  // Set up an interval to call fetchPeriodicMessage every 15 seconds
+  // Set up an interval to call fetchPeriodicMessage every 10 seconds, but pausing and resetting in Listen mode
   useEffect(() => {
-    const intervalId = setInterval(fetchPeriodicMessage, 5000);
+    if (state.isListening) {
+      console.log("Pausing periodic message timer due to listening mode...");
+      clearInterval(periodicMessageIntervalRef.current); // Clear the existing interval
+    } else {
+      console.log("Setting up or resuming periodic message interval...");
+      clearInterval(periodicMessageIntervalRef.current); // Clear the existing interval, if any
+      periodicMessageIntervalRef.current = setInterval(fetchPeriodicMessage, PERIODIC_MESSAGE_INTERVAL); // Set up a new interval
+    }
 
-    return () => clearInterval(intervalId); // Clear interval on unmount
-  }, []);
+    return () => {
+      console.log("Clearing periodic message interval...");
+      clearInterval(periodicMessageIntervalRef.current);
+    };
+  }, [state.isListening, fetchPeriodicMessage]);
+
 
   // Fetch available devices when the component mounts
   useEffect(() => {
@@ -209,6 +265,7 @@ function ChatInterface() {
   // Handle the listening loop
   useEffect(() => {
     if (state.isListening) {
+      
       // Create a Socket.IO connection
       socketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
   
@@ -248,20 +305,21 @@ function ChatInterface() {
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
       });
   
-    } else if (socketRef.current) {
-      // Disconnect the Socket.IO connection if isListening is false
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-  
-    // Clean up the Socket.IO connection when the component is unmounted
-  return () => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-    }
-  };
-}, [state.isListening, selectedDeviceIndex]);
-  
+      } else if (socketRef.current) {
+        // Disconnect the Socket.IO connection if isListening is false
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    
+      // Clean up the Socket.IO connection when the component is unmounted
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [state.isListening, selectedDeviceIndex]);
+
+  // Frontend UI
   return (
     <div className="chat-interface">
       {/* Device selection dropdown */}
@@ -320,4 +378,3 @@ function ChatInterface() {
 }
 
 export default ChatInterface;
-
