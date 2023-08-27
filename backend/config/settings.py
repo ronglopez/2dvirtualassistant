@@ -15,10 +15,11 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 MAX_TOKENS = 50
 
 # ElevenLabs Settings
-AI_VOICE = "Freya" # For standard client output 
-AI_VOICE_ID = "jsCqWAovK2LkecY7zXl4" # For streaming 
-ELABS_MODEL = "eleven_monolingual_v1"
-ELABS_STREAM = True
+USE_ELABS = True # Set to True if you want to use ElevenLabs, set to False for testing
+AI_VOICE = "Freya" # For standard client output (For generate_audio function)
+AI_VOICE_ID = "jsCqWAovK2LkecY7zXl4" # ID required for streaming (For stream_audio function)
+ELABS_MODEL = "eleven_monolingual_v1" # Voice engine
+ELABS_STREAM = True # For voice streaming mode
 
 ###############################
 # SENTIMENT ANALYSIS SETTINGS #
@@ -50,9 +51,6 @@ LISTEN_KEYWORD_QUIT = "goodbye"
 # Listen function timeout
 LISTEN_PERIODIC_MESSAGE_TIMER = 15
 
-# Listen function timeout
-LISTEN_TIMEOUT = 30
-
 # Define a constant for the maximum number of messages
 MAX_MESSAGES = 6
 
@@ -61,5 +59,5 @@ MAX_MESSAGES = 6
 #######################
 
 # Moderation set up to simply replace the profane word
-# Set variable to True if you want the whole ai_response to be replaced
-MOD_REPLACE_RESPONSE = False
+MOD_REPLACE_RESPONSE = False # Set variable to True if you want the whole ai_response to be replaced
+MOD_REPLACE_PROFANITY = "-" # Set text to replace profanity, ie. Using "-", result in "What the ----!"

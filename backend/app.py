@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from elevenlabs import set_api_key
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 
 # Load environment variables from .env file
 load_dotenv("config/.env")
@@ -30,7 +30,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logging.info("Starting the application...")
 
 # Import settings
-from config.settings import LISTEN_TIMEOUT, THREAD_TIMEOUT, LISTEN_KEYWORD_QUIT
+from config.settings import LISTEN_KEYWORD_QUIT, LISTEN_PERIODIC_MESSAGE_TIMER
+from personalities import AI_PERSONALITY
 
 # Import AI answer functions
 from ai_response import *
@@ -46,7 +47,7 @@ def greeting():
 # Endpoint to provide a periodic message
 @app.route('/periodic_message', methods=['GET'])
 def periodic_message():
-  system_input = "User has been quiet for a little bit. Say something to get make them to talk."
+  system_input = AI_PERSONALITY["periodic_messages"]["passive"]
   message_role = "system"
   ai_response = get_ai_response(system_input, message_role)
   logging.info(f"Banter request received: {ai_response}")
@@ -113,11 +114,12 @@ def voice():
 # Listen mode
 class VoiceListener:
   def __init__(self):
-    self.shared_data = {'result': None, 'error': None, 'quit': None}
-    self.background_thread_end = False
-    self.should_stop = False
-    self.periodic_message_counter = 0
-    self.should_pause_counter = False
+    self.shared_data = {'result': None, 'error': None, 'quit': None} # Initialize data set to pass between the listener and the listen events
+    self.background_thread_end = False # Indicate to listen while loop that a voice input has been detected
+    self.should_stop = False # Stop listen while loop
+    self.periodic_message_timer = 0 # Initialize timer
+    self.should_pause_counter = False # Pause timer
+    self.consecutive_periodic_messages = 0 # Initialize counter to track number of consectutive periodic messages
 
   # Create a temporary audio file
   def create_temp_file(self, speech):
@@ -203,10 +205,10 @@ class VoiceListener:
     device_index = data.get('device_index', 1) 
 
     # Check microphone device_index number, make sure to use the correct one
-    logging.info(f"Microphone number: {device_index})")
+    logging.info(f"Microphone number: {device_index}")
 
     # Initialize counter for periodic messages
-    self.periodic_message_counter = 0.0
+    self.periodic_message_timer = 0
     self.should_pause_counter = False
 
     # Initialize Mic
@@ -215,9 +217,23 @@ class VoiceListener:
     r.energy_threshold = 400 # 300 is the default value of the SR library
     mic = sr.Microphone()
 
-    with sr.Microphone(device_index=device_index) as source:
-      logging.info("Adjusting audio for ambience...")
-      r.adjust_for_ambient_noise(source, duration=0.5)
+    try:
+      with sr.Microphone(device_index=device_index) as source:
+        logging.info("Adjusting audio for ambience...")
+        r.adjust_for_ambient_noise(source, duration=0.5)
+
+    except AttributeError:
+      logging.error("An error occurred while initializing the microphone. Deactivating listening mode.")
+      
+      # Notify the frontend that listening mode is being deactivated
+      system_input = "Seems that the user's Microphone is not compatible with Listen Mode. Inform the user of this and tell them to try using the record function."
+      ai_response = get_ai_response(system_input, "system")
+      socketio.emit('listening_deactivated', ai_response)
+      
+      # Set the flag to stop listening
+      self.should_stop = True
+      return
+
 
     logging.info("==========================")
     logging.info("Listening in background...")
@@ -231,10 +247,13 @@ class VoiceListener:
       if not self.should_pause_counter:
 
         # Increment the counter
-        self.periodic_message_counter += 0.1
+        self.periodic_message_timer += 0.1
 
-      # Check if it's time to send a periodic message (every 15 seconds)
-      if self.periodic_message_counter >= 15:
+      # Check if it's time to send a periodic message
+      if self.periodic_message_timer >= LISTEN_PERIODIC_MESSAGE_TIMER:
+
+        # Increment the consecutive_periodic_messages counter
+        self.consecutive_periodic_messages += 1
 
         # Stop listening mode
         logging.info("Stopped Listening")
@@ -243,10 +262,25 @@ class VoiceListener:
         # Pause Periodic Message Timer
         self.should_pause_counter = True
 
-        system_input = "User has been quiet for a little bit. Say something to get them to talk."
-        ai_response = get_ai_response(system_input, "system")
-        logging.info(f"Periodic message sent: {ai_response}")
-        socketio.emit('listening_periodic_message', ai_response)
+        if self.consecutive_periodic_messages < 3:
+          system_input = AI_PERSONALITY["periodic_messages"]["passive"]
+          ai_response = get_ai_response(system_input, "system")
+          logging.info(f"Periodic message sent: {ai_response}")
+
+          # Send periodic message
+          socketio.emit('listening_periodic_message', ai_response)
+
+        else:
+          system_input = AI_PERSONALITY["periodic_messages"]["final"]
+          ai_response = get_ai_response(system_input, "system")
+          logging.info("Periodic message triggered 3 times consecutively. Stopping listen mode.")
+    
+          # Notify the frontend that listening mode is being deactivated
+          socketio.emit('listening_deactivated', ai_response)
+
+          # Reset Consecutive Periodic Message Counter
+          self.consecutive_periodic_messages = 0
+          break
 
         break
 
@@ -259,8 +293,10 @@ class VoiceListener:
 
         # Pause Periodic Message Timer
         self.should_pause_counter = True
-
         self.should_stop = False
+
+        # Reset Consecutive Periodic Message Counter
+        self.consecutive_periodic_messages = 0
 
         break
 
@@ -272,6 +308,9 @@ class VoiceListener:
         stop_listening(wait_for_stop=False)
 
         # Paused Periodic Message Timer in stop_listening callback function
+
+        # Reset Consecutive Periodic Message Counter
+        self.consecutive_periodic_messages = 0
 
         # Check if the thread finished successfully
         if self.shared_data['result'] is not None:

@@ -43,7 +43,7 @@ function ChatInterface() {
   const [isTimerPaused, setIsTimerPaused] = useState(false);
 
   // Timers
-  const PERIODIC_MESSAGE_INTERVAL = 15000; // seconds in the thousands, ie. 15 seconds = 15000
+  const PERIODIC_MESSAGE_INTERVAL = 30000; // seconds in the thousands, ie. 15 seconds = 30000
   const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
   // State to hold available devices
@@ -296,6 +296,17 @@ function ChatInterface() {
 
         // Emit the 'start_listening' event to start listening with the selected device index
         socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
+      });
+
+      socketRef.current.on('listening_deactivated', function(data) {
+        const { ai_response } = data;
+
+        // Stop listening and update the button state
+        dispatch({ type: 'SET_IS_LISTENING', payload: false });
+        console.log("Listening mode deactivated for inactivity ");
+
+        // Add the transcribed audio and AI's response to the chat log
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
       });
   
       // Emit the 'start_listening' event to start listening with the selected device index

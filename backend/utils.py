@@ -89,3 +89,7 @@ def stream_audio(text, voice=AI_VOICE_ID, model=ELABS_MODEL, api_key=os.environ.
   # close the ffplay process when finished
   ffplay_proc.stdin.close()
   ffplay_proc.wait()
+
+# Set default voice engine
+def default_audio(text):
+  os.system(f'say -v Victoria "{text}"')

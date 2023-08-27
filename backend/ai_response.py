@@ -4,7 +4,7 @@ import logging
 import openai
 
 # Import utility files
-from utils import split_text, speak_sentences, stream_audio
+from utils import split_text, speak_sentences, stream_audio, default_audio
 from moderation import moderate_output
 
 # Configure logging
@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Import settings
 from personalities import AI_PERSONALITY
-from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS, ELABS_STREAM
+from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS, USE_ELABS, ELABS_STREAM
 
 # Import sentiment analysis
 from sentiment_analysis import update_ai_mood, analyze_sentiment_vader
@@ -125,21 +125,39 @@ def get_ai_response(message_input, message_role=None):
   # Error handling for exceeding OpenAI max token use
   except Exception as e:
     logging.error("An error occurred, possibly due to token limit. Clearing message history and restarting.", exc_info=True)
+    
+    ai_response = AI_PERSONALITY["error_message"]
 
-    return "I'm sorry, I encountered an error. Please try again."
+    return ai_response
 
   # Convert the AI's text response into audio using ElevenLabs
   # Start the text-to-speech monitoring timer
   start_text_to_speech_time = time.time()
 
   # ElevenLabs text-to-speech functions
-  # if ELABS_STREAM:
-  #   # Use ElevenLabs streaming method for text-to-speech
-  #   stream_audio(ai_response)
-  # else:
-  #   # Use ElevenLabs sentence-by-sentence method for text-to-speech
-  #   sentences = split_text(ai_response)
-  #   speak_sentences(sentences)
+  if USE_ELABS:
+    try:
+      if ELABS_STREAM:
+
+        # Use ElevenLabs streaming method for text-to-speech
+        stream_audio(ai_response)
+
+      else:
+
+        # Use ElevenLabs sentence-by-sentence method for text-to-speech
+        sentences = split_text(ai_response)
+        speak_sentences(sentences)
+
+    except Exception as e:
+      logging.error(f"An error occurred while using ElevenLabs: {e}")
+      ai_response = f"{ai_response} {AI_PERSONALITY['error_message']}"
+      
+      # Fallback to default system text-to-speech functions
+      default_audio(ai_response)
+
+  # Default to system text-to-speech functions
+  else:
+    default_audio(ai_response)
 
   # End the text-to-speech monitoring timer
   end_text_to_speech_time = time.time()

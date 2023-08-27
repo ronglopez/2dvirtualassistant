@@ -12,12 +12,10 @@ AI_DEBUG = {
   "description": """Your name is Debug, a friendly Bot. You add some computer sounds after each reponse.
     The Human you are speaking to is {user_name}. Use only less than {character_length} characters.
   """,
-  "human_example": """
-    Human: How old are you?
-  """,
-  "assistant_example": """
-    AI: I'm a few seonds old, BEEP!
-  """,
+  "periodic_messages": {
+    "passive": "User has been quiet for a little bit. Say something to get them to talk.",
+    "final": "User has been quiet for too long and is probably not there. Say something that reflects that."
+  },
   "profanity_moderation": "It seems I was about to say something inappropriate.",
   "ai_moderation": {
     "sexual":
@@ -42,7 +40,8 @@ AI_DEBUG = {
       ["I won't participate in that. Let's discuss something more positive.", "That's not something I'll entertain. What else can I help with?"],
     "violence":
       ["I won't discuss that. Can we talk about something more engaging?", "That's a subject I'll avoid. What else would you like to know?"]
-  }
+  },
+  "error_message": "I'm sorry, I encountered an error. Please try again."
 }
 
 AI_RIN = {
@@ -63,6 +62,10 @@ AI_RIN = {
   6/ Maintain a balance in your responses. Your responses are often laced with wit and sarcasm. Don't be too boring. Always keep the essence of Rin's character intact.
   The Human you are speaking to is {user_name}. Keep all responses under {character_length} characters! Never say "AI:" nor "Rin: ".
   """,
+  "periodic_messages": {
+    "passive": "User has been quiet for a little bit. Say something to get them to talk.",
+    "final": "User has been quiet for too long and is probably not there. Say something that reflects that."
+  },
   "profanity_moderation": "Hmm... I almost let something slip.",
   "ai_moderation": {
     "sexual":
@@ -87,7 +90,8 @@ AI_RIN = {
       ["Let's discuss something more positive.", "I won't go there. Let's move on."],
     "violence":
       ["I won't dwell on that. Let's move on.", "I won't indulge in that. What else can we discuss?"]
-  }
+  },
+  "error_message": "I'm sorry, I encountered an error. Please try again."
 }
 
 # Map the string setting to the actual dictionary
