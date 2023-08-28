@@ -46,6 +46,22 @@ function ChatInterface() {
   const PERIODIC_MESSAGE_INTERVAL = 30000; // seconds in the thousands, ie. 15 seconds = 30000
   const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
+  // Function to sanitize user input
+  const sanitizeInput = (input) => {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+      '/': '&#x2F;',
+      '`': '&#x60;',
+      '=': '&#x3D;'
+    };
+
+    return input.replace(/[&<>"'`=/]/g, (m) => map[m]);
+  };
+
   // State to hold available devices
   const [devices, setDevices] = useState([]);
 
@@ -77,14 +93,17 @@ function ChatInterface() {
     // Trim whitespace
     const trimmedInput = state.userInput.trim();
 
+    // Sanitize the input
+    const sanitizedInput = sanitizeInput(trimmedInput);
+
     dispatch({ type: 'SET_IS_PROCESSING', payload: true });
 
     // Add user's message to chat log
-    dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput } });
+    dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: sanitizedInput } });
 
     try {
-      // Send user's trimmed message to backend and get AI's response
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: trimmedInput });
+      // Send user's sanitized message to backend and get AI's response
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: sanitizedInput });
       const aiResponse = response.data;
 
       // Add AI's response to chat log
