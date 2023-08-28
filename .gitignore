@@ -14,7 +14,7 @@ backend/uploads/
 *.pyo
 
 # environment files
-backend/.env
+backend/config/.env
 frontend/.env
 .env.local
 .env.development.local
