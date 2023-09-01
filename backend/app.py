@@ -68,26 +68,22 @@ def periodic_message():
 def input_message():
 
   # Check for image upload
-  logging.info(f"Image Check")
   image_description, image_error = upload_image(request)
     
   # Check for user text input
-  logging.info(f"Text Check")
   user_input = request.form.get('input', None)
-  logging.info(f"Text Check 2")
   
   # Error if no image file detected and no text input detected
   if not user_input and not image_description:
-    logging.error(f"No Image, No Text")
+    logging.error("No Image, No Text")
     return jsonify(error="No input provided"), 400
   
   # Error in image upload function
   if image_error:
-    logging.error(f"Error in image upload function")
+    logging.error("Error in image upload function")
     return jsonify(error=image_error), 400
   
   # Get AI response
-  logging.info(f"Checks clear")
   ai_response = get_ai_response(user_input, 'user', image_description)
   
   return jsonify(ai_response)
@@ -174,33 +170,23 @@ class VoiceListener:
     logging.info("\n==========================\nUser voice input heard")
 
     # Pause Periodic Message Timer
-    logging.info("Periodic Message Timer Paused")
     self.should_pause_counter = True
     
     try:
 
       # Create a temporary file
-      logging.info("Creating temp file")
       temp_file_path = self.create_temp_file(speech)
-      logging.info("Temp file created successfully")
       
       # Read from the temporary file
-      logging.info("Reading temp file")
       transcription = self.transcribe_audio(temp_file_path)
-      logging.info("Temp file read successfully")
       
       # Remove the saved audio file
       os.remove(temp_file_path)
-      logging.info("Temp file removed successfully")
       
       # Generate the AI response based on the transcription
-      logging.info("Passing transcript to AI")
-      logging.info("********************")
       ai_response = get_ai_response(transcription, 'user')
-      logging.info("********************")
 
       # Quit listen mode if keyword LISTEN_KEYWORD_QUIT is heard by itself
-      logging.info("Transcription received")
       transcription_lower = transcription.lower()
       
       if transcription_lower == f"{LISTEN_KEYWORD_QUIT}" or f"{LISTEN_KEYWORD_QUIT}." in transcription_lower:
@@ -211,7 +197,6 @@ class VoiceListener:
         }
         
       else:
-        logging.info("Passing back results")
         self.shared_data['result'] = {
           "transcription": transcription,
           "ai_response": ai_response
@@ -343,7 +328,6 @@ class VoiceListener:
         # Check if the thread finished successfully
         if self.shared_data['result'] is not None:
           logging.info("\n==========================")
-          logging.info("Shared data received")
           socketio.emit('listening_result', self.shared_data['result'])
 
           break
