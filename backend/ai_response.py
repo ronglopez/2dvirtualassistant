@@ -21,16 +21,12 @@ from sentiment_analysis import update_ai_mood, analyze_sentiment_vader
 chat_history = []
 
 # Function to generate AI response based on user input
-def get_ai_response(message_input, message_role=None):
+def get_ai_response(message_input, message_role, image_description=None):
+
+  logging.info("\n==========================\nGetting AI Response\n==========================")
   
   # Global variables
   global chat_history, ai_mood, accumulated_sentiment
-
-  # Default to user message if not defined by route
-  if message_role is None:
-    message_role="user"
-
-  logging.info(f"Received {message_role} input: {message_input}")
 
   # Start the ai response monitoring timer
   start_response_time = time.time()
@@ -56,17 +52,22 @@ def get_ai_response(message_input, message_role=None):
 
   # Add the system template to messages
   messages.append({"role": "system", "content": system_template})
-  logging.info("System template added")
 
-  # Format message going to AI bot
-  message_input_template = message_input
-  logging.info(f"Message template: {message_input_template}")
+  # Add uploaded image generated description
+  if image_description is not None:
+    messages.append({"role": "system", "content": f"An image has been uploaded. You MUST emulate being able to see the image. Here's a description of the image from an Image-To-Text engine that you can use to describe what you see: '{image_description}'. Tell the user what you see."})
+    logging.info(f"Added uploaded image description: {image_description}")
+
+  # Check for message input
+  if message_input is not None:
+
+    # Format message going to AI bot
+    message_input_template = message_input
+    logging.info(f"Incoming Message: {message_input_template}")
 
   # Set chat history
   if chat_history:
-    logging.info("Chat history detected")
-    logging.info(f"Chat history before AI response: {chat_history}")
-
+    
     # Non-system messages
     non_system_messages = [msg for msg in chat_history if msg["role"] != "system"]
     
@@ -75,16 +76,13 @@ def get_ai_response(message_input, message_role=None):
 
     # Combine system and non-system messages
     chat_history_str = f"Chat History:\n{trimmed_non_system_messages}"
-    logging.info("Chat history trimmed")
-    logging.info(f"Chat history after trim: {chat_history_str}")
+    logging.info(chat_history_str)
 
     # Add chat history to messages
     messages += trimmed_non_system_messages # Use += to concatenate the lists
-    logging.info("Chat history added")
 
   # Add formatted message to AI bot into messages 
   messages.append({"role": message_role, "content": message_input_template})
-  logging.info("Inputted message added")
   logging.info(f"Messages: {messages}")
 
   # Use OpenAI's model to predict sentiment
@@ -118,9 +116,6 @@ def get_ai_response(message_input, message_role=None):
 
     # Trim the chat history to only keep the latest MAX_MESSAGES
     chat_history = chat_history[-MAX_MESSAGES:]
-
-    logging.info("Saving messages to chat history and trimming to keep the max allowed")
-    logging.info(f"New Chat History: {chat_history}")
 
   # Error handling for exceeding OpenAI max token use
   except Exception as e:
@@ -165,6 +160,7 @@ def get_ai_response(message_input, message_role=None):
   logging.info(f"Text-to-Speech Generation Time: {text_to_speech_time:.2f} seconds")
 
   # Monitor memory variable
-  logging.info(f"Number of messages before writing to memory: {len(chat_history)}")
+  logging.info(f"Number of messages before writing to memory: {len(chat_history)}\n==========================")
+
   
   return ai_response

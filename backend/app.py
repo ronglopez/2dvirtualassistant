@@ -35,30 +35,61 @@ from personalities import AI_PERSONALITY
 
 # Import AI answer functions
 from ai_response import *
+from image_reader import *
 
 # Endpoint to provide an initial greeting on page load
 @app.route('/greeting', methods=['GET'])
 def greeting():
+
+  # Set greeting command
   user_input = "Give the User a warm welcome"
+
+  # Get AI response
   ai_response = get_ai_response(user_input, 'system')
+
   logging.info(f"Greeting request received: {ai_response}")
+
   return jsonify(ai_response)
 
 # Endpoint to provide a periodic message
 @app.route('/periodic_message', methods=['GET'])
 def periodic_message():
+
+  # Set periodic message command based on AI personality
   system_input = AI_PERSONALITY["periodic_messages"]["passive"]
-  message_role = "system"
-  ai_response = get_ai_response(system_input, message_role)
+
+  # Get AI response
+  ai_response = get_ai_response(system_input, 'system')
   logging.info(f"Banter request received: {ai_response}")
   return jsonify(ai_response)
 
 # Endpoint to handle text-based user prompts
-@app.route('/ask', methods=['POST'])
-def ask():
-  user_input = request.json.get('input', 'user')
-  ai_response = get_ai_response(user_input)
-  logging.info(f"Ask request received: {user_input} -> {ai_response}")
+@app.route('/input_message', methods=['POST'])
+def input_message():
+
+  # Check for image upload
+  logging.info(f"Image Check")
+  image_description, image_error = upload_image(request)
+    
+  # Check for user text input
+  logging.info(f"Text Check")
+  user_input = request.form.get('input', None)
+  logging.info(f"Text Check 2")
+  
+  # Error if no image file detected and no text input detected
+  if not user_input and not image_description:
+    logging.error(f"No Image, No Text")
+    return jsonify(error="No input provided"), 400
+  
+  # Error in image upload function
+  if image_error:
+    logging.error(f"Error in image upload function")
+    return jsonify(error=image_error), 400
+  
+  # Get AI response
+  logging.info(f"Checks clear")
+  ai_response = get_ai_response(user_input, 'user', image_description)
+  
   return jsonify(ai_response)
 
 # Endpoint to handle voice-based user prompts
@@ -140,8 +171,7 @@ class VoiceListener:
   # Background listening thread
   def callback(self, recognizer, speech):
 
-    logging.info("==========================")
-    logging.info("User voice input heard")
+    logging.info("\n==========================\nUser voice input heard")
 
     # Pause Periodic Message Timer
     logging.info("Periodic Message Timer Paused")
@@ -235,10 +265,8 @@ class VoiceListener:
       return
 
 
-    logging.info("==========================")
-    logging.info("Listening in background...")
+    logging.info("\n==========================\nListening in background...")
     stop_listening = r.listen_in_background(mic, self.callback)
-    logging.info("==========================")
 
     while True:
       socketio.sleep(0.1)
@@ -256,7 +284,7 @@ class VoiceListener:
         self.consecutive_periodic_messages += 1
 
         # Stop listening mode
-        logging.info("Stopped Listening")
+        logging.info("\n==========================\nStopped Listening")
         stop_listening(wait_for_stop=False)
 
         # Pause Periodic Message Timer
@@ -288,7 +316,7 @@ class VoiceListener:
       if self.should_stop:
 
         # Stop listening mode
-        logging.info("Stopped Listening")
+        logging.info("\n==========================\nStopped Listening")
         stop_listening(wait_for_stop=False)
 
         # Pause Periodic Message Timer
@@ -304,7 +332,7 @@ class VoiceListener:
       if self.background_thread_end:
 
         # Stop listening mode
-        logging.info("Stopped Listening")
+        logging.info("\n==========================\nStopped Listening")
         stop_listening(wait_for_stop=False)
 
         # Paused Periodic Message Timer in stop_listening callback function
@@ -314,7 +342,7 @@ class VoiceListener:
 
         # Check if the thread finished successfully
         if self.shared_data['result'] is not None:
-          logging.info("==========================")
+          logging.info("\n==========================")
           logging.info("Shared data received")
           socketio.emit('listening_result', self.shared_data['result'])
 
@@ -337,7 +365,6 @@ class VoiceListener:
 
     # Reset Background Thread flag
     self.background_thread_end = False
-    logging.info("==========================")
 
 # Endpoints to handle voice-based user prompts and stopping voice listening
 voice_listener = VoiceListener()

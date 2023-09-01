@@ -41,6 +41,8 @@ function ChatInterface() {
   const recordingTimeoutRef = useRef(null);
   const periodicMessageIntervalRef = useRef(null);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const fileInputRef = useRef(null);
 
   // Timers
   const PERIODIC_MESSAGE_INTERVAL = 30000; // seconds in the thousands, ie. 15 seconds = 30000
@@ -71,6 +73,11 @@ function ChatInterface() {
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
 
+  // Handle upload file changes
+  const handleFileChange = (event) => {
+    setUploadedFile(event.target.files[0]);
+  };
+
   // Handle changes in the text input field
   const handleInputChange = (event) => {
     dispatch({ type: 'SET_USER_INPUT', payload: event.target.value });
@@ -79,54 +86,76 @@ function ChatInterface() {
   // Handle the submission of text input to the backend
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Clear the existing interval and set up a new one
-    console.log("Clearing and resetting periodic message interval due to text input...");
-    clearInterval(periodicMessageIntervalRef.current);
-
+  
     // Pause the periodic message timer
     console.log("Pausing periodic message timer due to recording...");
     setIsTimerPaused(true);
-
-    periodicMessageIntervalRef.current = setInterval(fetchPeriodicMessage, PERIODIC_MESSAGE_INTERVAL);
-
+  
+    dispatch({ type: 'SET_IS_PROCESSING', payload: true });
+  
     // Trim whitespace
     const trimmedInput = state.userInput.trim();
-
+  
     // Sanitize the input for display
     const sanitizedInputForBackend = sanitizeTextInput(trimmedInput);
-
-    dispatch({ type: 'SET_IS_PROCESSING', payload: true });
-
+  
+    // Create FormData to hold both text and file data
+    const formData = new FormData();
+    formData.append('input', sanitizedInputForBackend);
+  
+    if (uploadedFile) {
+      formData.append('file', uploadedFile);
+  
+      // Add status message that an image was uploaded
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: 'Image uploaded' } });
+    }
+  
     // Add user's message to chat log for display
     dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput } });
-
+  
     try {
-      // Send user's sanitized message to backend and get AI's response
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/ask`, { input: sanitizedInputForBackend });
+      
+      // Send FormData to backend and get AI's response
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/input_message`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
       const aiResponse = response.data;
-
+  
       // Add AI's response to chat log
       dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: aiResponse } });
-
+  
+      // Reset the file input to "No file chosen"
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+  
       // Resume the periodic message timer
       console.log("Resuming periodic message timer after AI response...");
       setIsTimerPaused(false);
-
+  
     } catch (error) {
       console.error("Error communicating with backend:", error);
     }
-
-    // Clear the input field
+  
+    // Clear the input field and uploaded file state
     dispatch({ type: 'SET_USER_INPUT', payload: '' });
+    setUploadedFile(null);
     dispatch({ type: 'SET_IS_PROCESSING', payload: false });
-
+  
     // Focus on the input field after processing is complete
     setTimeout(() => {
       inputRef.current.focus();
     }, 100);
+  
+    // Clear the existing interval and set up a new one
+    console.log("Clearing and resetting periodic message interval due to text input...");
+    clearInterval(periodicMessageIntervalRef.current);
+    periodicMessageIntervalRef.current = setInterval(fetchPeriodicMessage, PERIODIC_MESSAGE_INTERVAL);
   };
-
+  
   // Handle the stopping of voice recording
   const onStop = async (recordedBlob) => {
 
@@ -249,7 +278,6 @@ function ChatInterface() {
       clearInterval(periodicMessageIntervalRef.current);
     };
   }, [state.isListening, fetchPeriodicMessage]);
-
 
   // Fetch available devices when the component mounts
   useEffect(() => {
@@ -389,6 +417,7 @@ function ChatInterface() {
 
       {/* Text input form */}
       <form className="chat-input" onSubmit={handleSubmit}>
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} />
         <input
           type="text"
           value={state.userInput}
@@ -399,9 +428,9 @@ function ChatInterface() {
           aria-label="Chat input field"
           autoFocus
         />
-        <button type="submit" disabled={state.isProcessing || !state.userInput.trim()} aria-label="Send message">
-          {state.isProcessing ? "Sending..." : "Send"}
-        </button>
+       <button type="submit" disabled={(state.isProcessing || !state.userInput.trim()) && !uploadedFile} aria-label="Send message">
+        {state.isProcessing ? "Sending..." : "Send"}
+      </button>
       </form>
 
       {/* Audio recording controls */}
