@@ -15,7 +15,7 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 MAX_TOKENS = 50
 
 # ElevenLabs Settings
-USE_ELABS = True # Set to True if you want to use ElevenLabs, set to False for testing
+USE_ELABS = False # Set to True if you want to use ElevenLabs, set to False for testing
 AI_VOICE = "Freya" # For standard client output (For generate_audio function)
 AI_VOICE_ID = "jsCqWAovK2LkecY7zXl4" # ID required for streaming (For stream_audio function)
 ELABS_MODEL = "eleven_monolingual_v1" # Voice engine

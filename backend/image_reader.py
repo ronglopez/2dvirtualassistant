@@ -4,7 +4,6 @@ import logging
 import requests
 import tempfile
 from transformers import pipeline
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -76,5 +75,9 @@ def image2text(filename):
   except Exception as e:
     logging.error(f"An error occurred while using Image-To-Text model: {e}")
 
-  logging.info(response)
-  return response.json()[0]['generated_text']
+  try:
+      return response.json()[0]['generated_text']
+  
+  except KeyError:
+    logging.error(f"KeyError: The key does not exist in the JSON response.")
+    return "Error: Could not generate text from image."

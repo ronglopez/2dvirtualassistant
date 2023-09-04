@@ -3,6 +3,8 @@ frontend/node_modules/
 backend/venv/
 backend/venv310/
 backend/__pycache__/
+Pipfile
+Pipfile.lock
 
 # uploaded files (if you don't want to track them)
 backend/uploads/
@@ -12,6 +14,7 @@ backend/uploads/
 *.log*
 *.pyc
 *.pyo
+.vscode/
 
 # environment files
 backend/config/.env

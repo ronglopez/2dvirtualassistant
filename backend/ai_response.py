@@ -17,8 +17,30 @@ from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPER
 # Import sentiment analysis
 from sentiment_analysis import update_ai_mood, analyze_sentiment_vader
 
+# Import embeddings
+from embeddings.embedding_functions import search_query
+
 # Initialize an empty list to store chat messages
 chat_history = []
+
+# Function to check if the text is a question
+def is_question(text):
+  question_words = ["who", "what", "where", "when", "why", "how"]
+  question_starts = ["is", "are", "will", "can", "do", "does"]
+  
+  # Check for question mark
+  if "?" in text:
+    return True
+  
+  # Check for question words
+  if any(word in text.lower().split() for word in question_words):
+    return True
+  
+  # Check for common question starting words
+  if any(text.lower().startswith(start) for start in question_starts):
+    return True
+  
+  return False
 
 # Function to generate AI response based on user input
 def get_ai_response(message_input, message_role, image_description=None):
@@ -32,7 +54,7 @@ def get_ai_response(message_input, message_role, image_description=None):
   start_response_time = time.time()
 
   # Sentiment Analysis if user sent message
-  if message_role == "user":
+  if message_role == "user" and message_input is not None:
 
     # Select using VADER or non VADER analysis
     # user_sentiment = analyze_sentiment(message_input)
@@ -47,23 +69,22 @@ def get_ai_response(message_input, message_role, image_description=None):
   messages = []
 
   # Add AI background/personality and ai mood to system template
-  system_template = f"{AI_PERSONALITY['description']}\n\nYou will emulate feeling {ai_mood}\n\nChat History:"
-  logging.info(f"System template: {system_template}")
+  system_template = f"{AI_PERSONALITY['description']}\n\nYou will emulate feeling {ai_mood}"
+
+  # Check if the message is a question
+  if message_input is not None and is_question(message_input):
+
+    system_template = system_template + "\n\nChat Context:"
+        
+    # Check embeddings for better context
+    matches = search_query(message_input)
+    for match in matches:
+      system_template = f"{system_template}\n{match['metadata']}"
+
+  logging.info(f"System template:\n{system_template}")
 
   # Add the system template to messages
   messages.append({"role": "system", "content": system_template})
-
-  # Add uploaded image generated description
-  if image_description is not None:
-    messages.append({"role": "system", "content": f"An image has been uploaded. You MUST emulate being able to see the image. Here's a description of the image from an Image-To-Text engine that you can use to describe what you see: '{image_description}'. Tell the user what you see."})
-    logging.info(f"Added uploaded image description: {image_description}")
-
-  # Check for message input
-  if message_input is not None:
-
-    # Format message going to AI bot
-    message_input_template = message_input
-    logging.info(f"Incoming Message: {message_input_template}")
 
   # Set chat history
   if chat_history:
@@ -81,8 +102,21 @@ def get_ai_response(message_input, message_role, image_description=None):
     # Add chat history to messages
     messages += trimmed_non_system_messages # Use += to concatenate the lists
 
+  # Check for message input
+  if not message_input:
+
+    # Add default image upload message
+    message_input = "Tell me what the image that was uploaded is."
+    
+  logging.info(f"Incoming Message: {message_input}")
+
+  # Add uploaded image generated description
+  if image_description is not None:
+    messages.append({"role": "system", "content": f"An image has been uploaded. You MUST pretend to being able to see the image. Here's a description of the image from an Image-To-Text engine that you can use to describe what you see: '{image_description}'. Tell the user what you see."})
+    logging.info(f"Added uploaded image description: {image_description}")
+  
   # Add formatted message to AI bot into messages 
-  messages.append({"role": message_role, "content": message_input_template})
+  messages.append({"role": message_role, "content": message_input})
   logging.info(f"Messages: {messages}")
 
   # Use OpenAI's model to predict sentiment

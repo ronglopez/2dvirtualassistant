@@ -71,7 +71,7 @@ def input_message():
   image_description, image_error = upload_image(request)
     
   # Check for user text input
-  user_input = request.form.get('input', None)
+  user_input = request.form.get('input') or None
   
   # Error if no image file detected and no text input detected
   if not user_input and not image_description:
