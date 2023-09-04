@@ -32,7 +32,7 @@ def speak_sentences(sentences):
       ai_audio = generate_audio(sentence)
       play(ai_audio)
 
-# Split sentences into text chuncks. Use with ElevenLabs client
+# Split sentences into text chuncks. Use with ElevenLabs client (non-streaming mode)
 def split_text(text, max_length=MIN_SENTENCE_LENGTH):
   sentences = []
   while text:

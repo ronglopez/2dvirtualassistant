@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logging.info("Starting the application...")
 
 # Import settings
-from config.settings import LISTEN_KEYWORD_QUIT, LISTEN_PERIODIC_MESSAGE_TIMER
+from config.settings import LISTEN_KEYWORD_QUIT, LISTEN_PERIODIC_MESSAGE_TIMER, OPENAI_WHISPER_MODEL
 from personalities import AI_PERSONALITY
 
 # Import AI answer functions
@@ -113,7 +113,7 @@ def voice():
 
     # Transcribe the audio file to text
     with open(temp_file_path, "rb") as file_to_send:
-      transcription_result = openai.Audio.transcribe(model="whisper-1", file=file_to_send)
+      transcription_result = openai.Audio.transcribe(model=OPENAI_WHISPER_MODEL, file=file_to_send)
       transcription = transcription_result['text']
     
     # End the transcription monitoring timer
@@ -157,7 +157,7 @@ class VoiceListener:
   # Read from the temporary audio file
   def transcribe_audio(self, temp_file_path):
     with open(temp_file_path, 'rb') as speech:
-      transcription_result = openai.Audio.transcribe(model="whisper-1", file=speech)
+      transcription_result = openai.Audio.transcribe(model=OPENAI_WHISPER_MODEL, file=speech)
       return transcription_result['text']
 
   def handle_stop_listening(self):

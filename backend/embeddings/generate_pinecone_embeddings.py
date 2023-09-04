@@ -11,6 +11,9 @@ import pinecone
 from dotenv import load_dotenv
 from tqdm.auto import tqdm
 
+# Import settings variables
+from config.settings import OPENAI_EMBEDDING_MODEL, PINECONE_INDEX_NAME
+
 # Load environment variables
 load_dotenv("../config/.env")
 
@@ -21,10 +24,6 @@ pinecone_environment = os.environ.get("PINECONE_API_ENVIRONMENT")
 
 # Initialize Pinecone
 pinecone.init(api_key=pinecone_api_key, environment=pinecone_environment)
-
-# Set variables
-OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"
-PINECONE_INDEX_NAME = "openai-embeddings"
 
 # Connect to index
 index = pinecone.Index(PINECONE_INDEX_NAME)
