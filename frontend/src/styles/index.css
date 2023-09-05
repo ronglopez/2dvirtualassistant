@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Core CSS
+   ========================================================================== */
+html,
+body {
+  background-color: #ffffff;
+  color: #111111;
+  font-family: 'Poppins', sans-serif;
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.35;
+  margin: 0;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+/* Headers */
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Poppins', sans-serif;
+}
+h1 {
+  font-size: 2.75em;
+  font-weight: 600;
+}
+h2 {
+  font-size: 2em;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+h3 {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+h4 {
+  font-size: 1em;
+  font-weight: 500;
+}
+h5 {
+  color: #666666;
+  font-size: 0.9em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+@media (min-width: 992px) {
+  h1 {
+    font-size: 4em;
+  }
+  h2 {
+    font-size: 2.25em;
+  }
+  h3 {
+    font-size: 1.67em;
+  }
+  h4 {
+    font-size: 1.25em;
+  }
+  h5 {
+    font-size: 0.9em;
+  }
+  p,
+  li {
+    font-size: 18px;
+  }
+}
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  h1 {
+    font-size: 3.5em;
+  }
+}
+/* Text */
+p,
+li {
+  font-size: 1em;
+}
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+/* Links and Buttons */
+a {
+  color: #6610F2;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-transition: color 0.15s ease;
+  -o-transition: color 0.15s ease;
+  transition: color 0.15s ease;
+}
+a:hover {
+  color: #3d0894;
+  text-decoration: none;
+}

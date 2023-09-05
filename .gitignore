@@ -15,6 +15,7 @@ backend/uploads/
 *.pyc
 *.pyo
 .vscode/
+dwsync.xml
 
 # environment files
 backend/config/.env

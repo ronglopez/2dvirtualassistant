@@ -2,7 +2,7 @@
 import React, { useReducer, useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
-import './ChatInterface.css';
+import { Button, Form, InputGroup, FormControl, Dropdown } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 
 // Define Initial State
@@ -33,7 +33,7 @@ const reducer = (state, action) => {
 };
 
 // Main Chat Functions
-function ChatInterface() {
+function ChatInterface({ chatStarted }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
   const isListeningRef = useRef(state.isListening);
@@ -48,22 +48,6 @@ function ChatInterface() {
   const PERIODIC_MESSAGE_INTERVAL = 30000; // seconds in the thousands, ie. 15 seconds = 30000
   const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
-  // Function to sanitize user input for display
-  const sanitizeTextInput = (input) => {
-    const map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '/': '&#x2F;',
-      '`': '&#x60;',
-      '=': '&#x3D;',
-      '"': '&quot;',
-      "'": '&#x27;'
-    };
-
-    return input.replace(/[&<>"'/`=]/g, (m) => map[m]);
-  };
-
   // State to hold available devices
   const [devices, setDevices] = useState([]);
 
@@ -73,9 +57,29 @@ function ChatInterface() {
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
 
-  // Handle upload file changes
+  // State to hold thumbnail URL
+  const [thumbnailURL, setThumbnailURL] = useState(null);
+
+  /// Function to handle file change and generate thumbnail
   const handleFileChange = (event) => {
-    setUploadedFile(event.target.files[0]);
+    const file = event.target.files[0];
+    setUploadedFile(file);
+
+    // Generate thumbnail URL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setThumbnailURL(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Function to remove uploaded file and clear thumbnail
+  const removeUploadedFile = () => {
+    setUploadedFile(null);
+    setThumbnailURL(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   // Handle changes in the text input field
@@ -96,12 +100,9 @@ function ChatInterface() {
     // Trim whitespace
     const trimmedInput = state.userInput.trim();
   
-    // Sanitize the input for display
-    const sanitizedInputForBackend = sanitizeTextInput(trimmedInput);
-  
     // Create FormData to hold both text and file data
     const formData = new FormData();
-    formData.append('input', sanitizedInputForBackend);
+    formData.append('input', trimmedInput);
   
     if (uploadedFile) {
       formData.append('file', uploadedFile);
@@ -264,6 +265,8 @@ function ChatInterface() {
 
   // Set up an interval to call fetchPeriodicMessage every 10 seconds, but pausing and resetting in Listen mode
   useEffect(() => {
+    if (!chatStarted) return;
+
     if (state.isListening) {
       console.log("Pausing periodic message timer due to listening mode...");
       clearInterval(periodicMessageIntervalRef.current); // Clear the existing interval
@@ -277,10 +280,12 @@ function ChatInterface() {
       console.log("Clearing periodic message interval...");
       clearInterval(periodicMessageIntervalRef.current);
     };
-  }, [state.isListening, fetchPeriodicMessage]);
+  }, [state.isListening, fetchPeriodicMessage, chatStarted]);
 
   // Fetch available devices when the component mounts
   useEffect(() => {
+    if (!chatStarted) return;
+
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       navigator.mediaDevices.enumerateDevices()
         .then(deviceList => {
@@ -295,10 +300,12 @@ function ChatInterface() {
       console.warn('Media devices are not supported in this browser.');
       // You can also set a state here to notify the user or disable certain features
     }
-  }, []);
+  }, [chatStarted]);
 
   // Fetch the greeting message when the component mounts
   useEffect(() => {
+    if (!chatStarted) return;
+
     const fetchGreeting = async () => {
       try {
         const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/greeting`);
@@ -312,15 +319,19 @@ function ChatInterface() {
     };
 
     fetchGreeting();
-  }, []);
+  }, [chatStarted]);
 
   // Handle the listening state
   useEffect(() => {
+    if (!chatStarted) return;
+
     isListeningRef.current = state.isListening;
-  }, [state.isListening]);
+  }, [state.isListening, chatStarted]);
 
   // Handle the listening loop
   useEffect(() => {
+    if (!chatStarted) return;
+
     if (state.isListening) {
       
       // Create a Socket.IO connection
@@ -393,19 +404,26 @@ function ChatInterface() {
         socketRef.current.disconnect();
       }
     };
-  }, [state.isListening, selectedDeviceIndex]);
+  }, [state.isListening, selectedDeviceIndex, chatStarted]);
 
   // Frontend UI
   return (
     <div className="chat-interface">
       {/* Device selection dropdown */}
-      <select onChange={handleDeviceChange}>
-        {devices.map((device, index) => (
-          <option key={device.deviceId} value={index}>
-            {device.label}
-          </option>
-        ))}
-      </select>
+      <Dropdown onSelect={handleDeviceChange}>
+        <Dropdown.Toggle variant="success" id="dropdown-basic">
+          Select Device
+        </Dropdown.Toggle>
+
+        <Dropdown.Menu>
+          {devices.map((device, index) => (
+            <Dropdown.Item key={device.deviceId} eventKey={index}>
+              {device.label}
+            </Dropdown.Item>
+          ))}
+        </Dropdown.Menu>
+      </Dropdown>
+
       {/* Display chat log */}
       <div className="chat-log">
         {state.chatLog.map((entry, index) => (
@@ -416,22 +434,49 @@ function ChatInterface() {
       </div>
 
       {/* Text input form */}
-      <form className="chat-input" onSubmit={handleSubmit}>
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} />
-        <input
-          type="text"
-          value={state.userInput}
-          onChange={handleInputChange}
-          placeholder="Type your message..."
-          disabled={state.isProcessing}
-          ref={inputRef}
-          aria-label="Chat input field"
-          autoFocus
-        />
-       <button type="submit" disabled={(state.isProcessing || !state.userInput.trim()) && !uploadedFile} aria-label="Send message">
-        {state.isProcessing ? "Sending..." : "Send"}
-      </button>
-      </form>
+      <Form onSubmit={handleSubmit} className="chat-input">
+        <InputGroup>
+          <FormControl
+            type="text"
+            value={state.userInput}
+            onChange={handleInputChange}
+            placeholder="Type your message..."
+            disabled={state.isProcessing}
+            ref={inputRef}
+            aria-label="Chat input field"
+            maxLength={100}
+          />
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".jpg,.jpeg,.png"
+            style={{ display: 'none' }}
+          />
+          <Button variant="outline-secondary" onClick={() => fileInputRef.current.click()} disabled={state.isProcessing}>
+            <i className="fas fa-image"></i>
+          </Button>
+          <Button variant="primary" type="submit" disabled={(state.isProcessing || !state.userInput.trim()) && !uploadedFile}>
+            {state.isProcessing ? "Sending..." : "Send"}
+          </Button>
+        </InputGroup>
+        {/* Chip to display uploaded file name and thumbnail */}
+        {uploadedFile && (
+          <div className="mt-2">
+            <span className="badge bg-primary">
+              <div className="upload-image d-inline-block me-3">
+                {thumbnailURL && <img src={thumbnailURL} alt="Upload Thumbnail" />}
+              </div>
+              <div className="d-inline-block me-3">
+                <p>{uploadedFile.name}</p>
+              </div>
+              <button type="button" className="close" aria-label="Close" onClick={removeUploadedFile}>
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </span>
+          </div>
+        )}
+      </Form>
 
       {/* Audio recording controls */}
       <div className="audio-controls">
@@ -443,12 +488,12 @@ function ChatInterface() {
           backgroundColor="#FF4081"
           aria-label="Audio recorder"
         />
-        <button onClick={handleRecording} disabled={state.isListening} aria-label="Audio recording button">
+        <Button variant="secondary" onClick={handleRecording} disabled={state.isListening} aria-label="Audio recording button">
           {state.isRecording ? "Recording..." : "Start Recording"}
-        </button>
-        <button onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
+        </Button>
+        <Button variant="info" onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
           {state.isListening ? "Listening..." : "Start Listening"}
-        </button>
+        </Button>
       </div>
     </div>
   );
