@@ -79,6 +79,9 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+.fs-7 {
+  font-size: 0.75rem;
+}
 /* Links and Buttons */
 a {
   color: #6610F2;

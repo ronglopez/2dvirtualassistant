@@ -33,10 +33,11 @@ const reducer = (state, action) => {
 };
 
 // Main Chat Functions
-function ChatInterface({ chatStarted }) {
+function ChatInterface({ chatStarted, handleEndClick }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
   const isListeningRef = useRef(state.isListening);
+  const [isMuted, setIsMuted] = useState(false);
   const recordingModeRef = useRef(false);
   const recordingTimeoutRef = useRef(null);
   const periodicMessageIntervalRef = useRef(null);
@@ -53,6 +54,22 @@ function ChatInterface({ chatStarted }) {
 
   // State to hold selected device index
   const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(1); // Default to 1
+  const [selectedDeviceLabel, setSelectedDeviceLabel] = useState("Select Device");
+
+  // State to handle mute state
+  const handleMute = () => {
+    setIsMuted(!isMuted);
+  
+    if (socketRef.current) {
+      if (isMuted) {
+        // If it's currently muted, send an 'unmute' signal
+        socketRef.current.emit('unmute');
+      } else {
+        // If it's currently unmuted, send a 'mute' signal
+        socketRef.current.emit('mute');
+      }
+    }
+  };
 
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
@@ -238,9 +255,9 @@ function ChatInterface({ chatStarted }) {
   };
 
   // Handle device selection
-  const handleDeviceChange = (event) => {
-    const index = event.target.value;
-    setSelectedDeviceIndex(index);
+  const handleDeviceChange = (eventKey) => {
+    setSelectedDeviceIndex(eventKey);
+    setSelectedDeviceLabel(devices[eventKey]?.label || "Select Device");
   };
 
   // Function to fetch a periodic message from the backend
@@ -290,17 +307,23 @@ function ChatInterface({ chatStarted }) {
       navigator.mediaDevices.enumerateDevices()
         .then(deviceList => {
           // Filter for audio input devices (microphones)
-        const microphones = deviceList.filter(device => device.kind === 'audioinput');
-        setDevices(microphones);
-      })
-      .catch(error => {
-        console.error('Error fetching devices:', error);
-      });
+          const microphones = deviceList.filter(device => device.kind === 'audioinput');
+          setDevices(microphones);
+  
+          // Update the default device label if devices are available
+          if (microphones.length > 0 && selectedDeviceIndex < microphones.length) {
+            setSelectedDeviceLabel(microphones[selectedDeviceIndex]?.label || "Select Device");
+          }
+  
+        })
+        .catch(error => {
+          console.error('Error fetching devices:', error);
+        });
     } else {
       console.warn('Media devices are not supported in this browser.');
       // You can also set a state here to notify the user or disable certain features
     }
-  }, [chatStarted]);
+  }, [chatStarted, selectedDeviceIndex]);
 
   // Fetch the greeting message when the component mounts
   useEffect(() => {
@@ -408,24 +431,41 @@ function ChatInterface({ chatStarted }) {
 
   // Frontend UI
   return (
-    <div className="chat-interface">
-      {/* Device selection dropdown */}
-      <Dropdown onSelect={handleDeviceChange}>
-        <Dropdown.Toggle variant="success" id="dropdown-basic">
-          Select Device
-        </Dropdown.Toggle>
+    <div className="chat-interface d-flex flex-column justify-content-between">
+      <div className="chat-header__top row">
+        <div className="col-12">
+          <div className="d-inline-block me-3">
+            <p className="text-light fs-7 fw-semibold mb-1">Select input device</p>
+          </div>
+          <div className="d-inline-block">
+            <Dropdown onSelect={handleDeviceChange}>
+              <Dropdown.Toggle variant='secondary' id="dropdown-basic">
+                <i className="fas fa-microphone"></i> {/* This is your microphone icon */}
+                {" "}
+                {selectedDeviceLabel.length > 20 ? selectedDeviceLabel.substring(0, 25) + "..." : selectedDeviceLabel}
+              </Dropdown.Toggle>
 
-        <Dropdown.Menu>
-          {devices.map((device, index) => (
-            <Dropdown.Item key={device.deviceId} eventKey={index}>
-              {device.label}
-            </Dropdown.Item>
-          ))}
-        </Dropdown.Menu>
-      </Dropdown>
+              <Dropdown.Menu>
+                {devices.map((device, index) => (
+                  <Dropdown.Item key={device.deviceId} eventKey={index}>
+                    {device.label}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+          </div>
+        </div>
+      </div>
+      <div className="chat-header row">
+        <div className="col-12 text-end">
+          <Button variant="danger" onClick={handleEndClick}>
+            End
+          </Button>
+        </div>
+      </div>
 
       {/* Display chat log */}
-      <div className="chat-log">
+      <div className="chat-log d-flex flex-column-reverse h-100 overflow-y-auto">
         {state.chatLog.map((entry, index) => (
           <div key={index} className={`chat-entry ${entry.role}`}>
             <p>{entry.content}</p>
@@ -433,67 +473,98 @@ function ChatInterface({ chatStarted }) {
         ))}
       </div>
 
-      {/* Text input form */}
-      <Form onSubmit={handleSubmit} className="chat-input">
-        <InputGroup>
-          <FormControl
-            type="text"
-            value={state.userInput}
-            onChange={handleInputChange}
-            placeholder="Type your message..."
-            disabled={state.isProcessing}
-            ref={inputRef}
-            aria-label="Chat input field"
-            maxLength={100}
-          />
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".jpg,.jpeg,.png"
-            style={{ display: 'none' }}
-          />
-          <Button variant="outline-secondary" onClick={() => fileInputRef.current.click()} disabled={state.isProcessing}>
-            <i className="fas fa-image"></i>
-          </Button>
-          <Button variant="primary" type="submit" disabled={(state.isProcessing || !state.userInput.trim()) && !uploadedFile}>
-            {state.isProcessing ? "Sending..." : "Send"}
-          </Button>
-        </InputGroup>
-        {/* Chip to display uploaded file name and thumbnail */}
-        {uploadedFile && (
-          <div className="mt-2">
-            <span className="badge bg-primary">
-              <div className="upload-image d-inline-block me-3">
-                {thumbnailURL && <img src={thumbnailURL} alt="Upload Thumbnail" />}
-              </div>
-              <div className="d-inline-block me-3">
-                <p>{uploadedFile.name}</p>
-              </div>
-              <button type="button" className="close" aria-label="Close" onClick={removeUploadedFile}>
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </span>
-          </div>
-        )}
-      </Form>
+      <div className="chat-footer">
+        {/* Input form */}
+        <Form onSubmit={handleSubmit} className="chat-footer__input">
 
-      {/* Audio recording controls */}
-      <div className="audio-controls">
-        <ReactMic
-          record={state.isRecording || state.isListening}
-          className="sound-wave"
-          onStop={onStop}
-          strokeColor="#000000"
-          backgroundColor="#FF4081"
-          aria-label="Audio recorder"
-        />
-        <Button variant="secondary" onClick={handleRecording} disabled={state.isListening} aria-label="Audio recording button">
-          {state.isRecording ? "Recording..." : "Start Recording"}
-        </Button>
-        <Button variant="info" onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
-          {state.isListening ? "Listening..." : "Start Listening"}
-        </Button>
+          {/* Soundwave */}
+          {isMuted ? (
+            <div className="frozen-sound-wave">
+              {/* Static content to mimic a soundwave */}
+            </div>
+          ) : (
+            <ReactMic
+              record={state.isRecording || state.isListening}
+              className={`sound-wave ${state.isRecording || state.isListening ? 'visible' : 'hidden'}`}
+              onStop={onStop}
+              strokeColor="#000000"
+              backgroundColor="#ffffff"
+              aria-label="Audio recorder"
+            />
+          )}
+
+          {/* Text input */}
+          <InputGroup className="gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".jpg,.jpeg,.png"
+              style={{ display: 'none' }}
+            />
+            <Button variant="light" onClick={() => fileInputRef.current.click()} disabled={state.isProcessing}>
+              <i className="fas fa-image"></i>
+            </Button>
+            <FormControl
+              type="text"
+              value={state.userInput}
+              onChange={handleInputChange}
+              placeholder="Type your message..."
+              disabled={state.isProcessing}
+              ref={inputRef}
+              aria-label="Chat input field"
+              maxLength={100}
+            />
+            {(state.isProcessing || state.userInput.trim() || uploadedFile) ? null : (
+              <Button variant="light" onClick={handleRecording} disabled={state.isListening}>
+                {state.isRecording ? <i className="fas fa-stop"></i> : <i className="fas fa-microphone"></i>}
+              </Button>
+            )}
+            {(state.isProcessing || state.userInput.trim() || uploadedFile) ? (
+              <Button variant="light" className="send-btn" type="submit" disabled={state.isProcessing || (!state.userInput.trim() && !uploadedFile)}>
+                {state.isProcessing ? "Sending..." : <i className="fas fa-paper-plane"></i>}
+              </Button>
+            ) : null}
+          </InputGroup>
+
+          {/* Chip to display uploaded file name and thumbnail */}
+          {uploadedFile && (
+            <div className="chat-footer__upload-image-badge">
+              <span className="badge d-inline-flex bg-secondary justify-content-between">
+                <div className="chat-input__badge-content d-flex align-items-center">
+                  <div className="chat-footer__uploaded-image me-3">
+                    {thumbnailURL && <img src={thumbnailURL} alt="Upload Thumbnail" />}
+                  </div>
+                  <div className="chat-input__file-name text-start">
+                    <p className="text-truncate mb-0">{uploadedFile.name}</p>
+                  </div>
+                </div>
+                <button type="button" className="close" aria-label="Close" onClick={removeUploadedFile}>
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </span>
+            </div>
+          )}
+        </Form>
+
+        {/* Device selection dropdown */}
+        <div className="chat-sub-footer row justify-content-center">
+          <div className="col-12">
+            {/* Audio listen controls */}
+            <div className='audio-controls row mb-3'>
+              <div className='col-12'>
+                <Button variant={isMuted ? "secondary" : "outline-secondary"} className='mute-btn me-3' onClick={handleMute} aria-label="Mute button">
+                  <i className='fas fa-microphone-slash me-2'></i>
+                  {isMuted ? "Unmute" : "Mute"}
+                </Button>
+                <Button variant="primary" className='listen-btn' onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
+                  <i className="fas fa-broadcast-tower me-2"></i>
+                  {state.isListening ? "Listening..." : "Start Listening"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

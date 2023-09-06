@@ -6,10 +6,23 @@ import ChatInterface from './components/ChatInterface';
 
 function App() {
   const [showModal, setShowModal] = useState(true);
+  const [showEndModal, setShowEndModal] = useState(false);
 
   const handleCloseModal = () => {
     setShowModal(false);
   };
+
+  const handleEndClick = () => {
+    setShowEndModal(true);
+  };
+  
+  const handleEndCancelClick = () => {
+    setShowEndModal(false);
+  };
+  
+  const handleEndConfirmClick = () => {
+    window.location.href = "https://ronglopez.com";
+  };  
 
   return (
     <div className="App container-fluid">
@@ -33,13 +46,41 @@ function App() {
         </div>
       </div>
 
-      {/* Modal Overlay */}
-      <div className={`overlay ${showModal ? 'show' : ''}`}></div>
+      {/* End modal */}
+      <div className={`modal fade ${showEndModal ? 'show d-block' : 'd-none'}`} tabIndex="-1">
+        <div className="modal-dialog">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">End Chat</h5>
+              <button type="button" className="close" aria-label="Close" onClick={handleEndCancelClick}>
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to end the chat?</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={handleEndCancelClick}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={handleEndConfirmClick}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Overlay for both Start and End modals */}
+      <div className={`overlay ${(showModal || showEndModal) ? 'show' : ''}`}></div>
 
       {/* Main body */}
-      <div className="row justify-content-center">
-        <div className="col-md-12">
-          <ChatInterface chatStarted={!showModal} /> {/* Pass the chatStarted prop here */}
+      <div className="row">
+        <div className="video-gallery col-md-8">
+        </div>
+        <div className="chat-panel col-4">
+          {/* Pass the chatStarted prop here */}
+          <ChatInterface chatStarted={!showModal} handleEndClick={handleEndClick} />
         </div>
       </div>
     </div>
