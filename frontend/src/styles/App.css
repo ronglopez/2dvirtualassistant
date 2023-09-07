@@ -36,24 +36,6 @@
   display: none;
 }
 
-.frozen-sound-wave {
-  background: #f1f1f1;
-  border-bottom: 1px solid #ddd;
-  height: 55px;
-  position: relative;
-  width: 100%;
-}
-
-.frozen-sound-wave::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #000000;
-}
-
 .chat-panel,
 .chat-interface {
   height: 100vh;
@@ -65,7 +47,117 @@
   padding-top: 1rem;
 }
 
+.profile-img {
+  background-color: #333;
+  border-radius: 50%;
+  height: 3rem;
+  margin-right: 0.5rem;
+  width: 3rem;
+}
+
+.ai-name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.ai-status {
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+
+.ellipsis {
+  display: inline-block;
+  width: 12px;
+  height: 1em;
+  position: relative;
+  vertical-align: bottom;
+}
+
+.ellipsis::before {
+  content: ".";
+  animation: ellipsis 1.5s steps(5, end) infinite;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: left;
+}
+
+@keyframes ellipsis {
+  0%, 100% {
+    content: ".";
+  }
+  20% {
+    content: "..";
+  }
+  40% {
+    content: "...";
+  }
+  60% {
+    content: "....";
+  }
+  80% {
+    content: ".....";
+  }
+}
+
 .chat-log {
+  padding: 0 0.5rem;
+}
+
+.chat-log .chat-entry {
+  font-size: 1rem;
+  font-weight: 400;
+  margin-bottom: 1rem;
+}
+
+.chat-log .chat-entry p {
+  margin: 0;
+}
+
+.chat-log .chat-entry.assistant {
+  text-align: left;
+}
+
+.chat-log .chat-entry.system {
+  text-align: center;
+}
+
+.chat-log .chat-entry.user {
+  text-align: right;
+}
+
+.chat-log .chat-entry.assistant .chat-entry__bubble,
+.chat-log .chat-entry.system .chat-entry__bubble,
+.chat-log .chat-entry.user .chat-entry__bubble {
+  border-radius: 1rem;
+  display: inline-block;
+  font-size: 0.875rem;
+  max-width: 75%;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.chat-log .chat-entry.assistant .chat-entry__bubble {
+  background-color: #ddd;
+  margin-right: auto;
+}
+
+.chat-log .chat-entry.system .chat-entry__bubble {
+  border-radius: 0.5rem;
+  color: #777;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0;
+  margin: 0 auto;
+  max-width: 100%;
+  text-align: center;
+}
+
+.chat-log .chat-entry.user .chat-entry__bubble {
+  background-color: #6610F2;
+  color: #fff;
+  margin-left: auto;
 }
 
 .chat-footer__input {
@@ -153,7 +245,6 @@ button.close {
   height: 40px;
 }
 
-.btn.mute-btn,
 .btn.listen-btn {
   padding: 1rem 1.5rem;
   height: auto;

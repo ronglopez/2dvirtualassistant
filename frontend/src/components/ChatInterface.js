@@ -37,7 +37,6 @@ function ChatInterface({ chatStarted, handleEndClick }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
   const isListeningRef = useRef(state.isListening);
-  const [isMuted, setIsMuted] = useState(false);
   const recordingModeRef = useRef(false);
   const recordingTimeoutRef = useRef(null);
   const periodicMessageIntervalRef = useRef(null);
@@ -55,21 +54,6 @@ function ChatInterface({ chatStarted, handleEndClick }) {
   // State to hold selected device index
   const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(1); // Default to 1
   const [selectedDeviceLabel, setSelectedDeviceLabel] = useState("Select Device");
-
-  // State to handle mute state
-  const handleMute = () => {
-    setIsMuted(!isMuted);
-  
-    if (socketRef.current) {
-      if (isMuted) {
-        // If it's currently muted, send an 'unmute' signal
-        socketRef.current.emit('unmute');
-      } else {
-        // If it's currently unmuted, send a 'mute' signal
-        socketRef.current.emit('mute');
-      }
-    }
-  };
 
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
@@ -125,11 +109,13 @@ function ChatInterface({ chatStarted, handleEndClick }) {
       formData.append('file', uploadedFile);
   
       // Add status message that an image was uploaded
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: 'Image uploaded' } });
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: `Image uploaded: ${uploadedFile.name}` } });
     }
-  
-    // Add user's message to chat log for display
-    dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput } });
+
+    if (trimmedInput) {    
+      // Add user's message to chat log for display
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput } });
+    }
   
     try {
       
@@ -456,8 +442,22 @@ function ChatInterface({ chatStarted, handleEndClick }) {
           </div>
         </div>
       </div>
-      <div className="chat-header row">
-        <div className="col-12 text-end">
+      <div className="chat-header row align-items-center">
+        <div className="col text-start">
+          <div className='d-flex flex-row align-items-center'>
+            <div className='profile-img'></div>
+            <div className=''>
+              <p className='ai-name'>Mira Lastname</p>
+              <p className='ai-status mb-0'>
+                {state.isProcessing ? <>Thinking<span className="ellipsis"></span></> : 
+                state.isRecording ? <>Listening to you<span className="ellipsis"></span></> : 
+                state.isListening ? <>Listening to you<span className="ellipsis"></span></> : 
+                'Ready to chat!'}
+              </p>
+            </div>
+            </div>
+        </div>
+        <div className="col text-end">
           <Button variant="danger" onClick={handleEndClick}>
             End
           </Button>
@@ -465,33 +465,44 @@ function ChatInterface({ chatStarted, handleEndClick }) {
       </div>
 
       {/* Display chat log */}
-      <div className="chat-log d-flex flex-column-reverse h-100 overflow-y-auto">
+      <div className="chat-log d-flex flex-column justify-content-end h-100 overflow-y-auto">
         {state.chatLog.map((entry, index) => (
           <div key={index} className={`chat-entry ${entry.role}`}>
-            <p>{entry.content}</p>
+            <div className='chat-entry__bubble'>
+              <p>{entry.content}</p>
+            </div>
           </div>
         ))}
       </div>
 
       <div className="chat-footer">
+        {/* Device selection dropdown */}
+        <div className="chat-sub-footer row justify-content-center">
+          <div className="col-12">
+            {/* Audio listen controls */}
+            <div className='audio-controls row'>
+              <div className='col-12'>
+                <Button variant="primary" className='listen-btn' onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
+                  <i className="fas fa-broadcast-tower me-2"></i>
+                  {state.isListening ? "Listening..." : "Start Listen Mode"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Input form */}
         <Form onSubmit={handleSubmit} className="chat-footer__input">
 
           {/* Soundwave */}
-          {isMuted ? (
-            <div className="frozen-sound-wave">
-              {/* Static content to mimic a soundwave */}
-            </div>
-          ) : (
-            <ReactMic
-              record={state.isRecording || state.isListening}
-              className={`sound-wave ${state.isRecording || state.isListening ? 'visible' : 'hidden'}`}
-              onStop={onStop}
-              strokeColor="#000000"
-              backgroundColor="#ffffff"
-              aria-label="Audio recorder"
-            />
-          )}
+          <ReactMic
+            record={state.isRecording || state.isListening}
+            className={`sound-wave ${state.isRecording || state.isListening ? 'visible' : 'hidden'}`}
+            onStop={onStop}
+            strokeColor="#000000"
+            backgroundColor="#ffffff"
+            aria-label="Audio recorder"
+          />
 
           {/* Text input */}
           <InputGroup className="gap-2">
@@ -522,7 +533,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
             )}
             {(state.isProcessing || state.userInput.trim() || uploadedFile) ? (
               <Button variant="light" className="send-btn" type="submit" disabled={state.isProcessing || (!state.userInput.trim() && !uploadedFile)}>
-                {state.isProcessing ? "Sending..." : <i className="fas fa-paper-plane"></i>}
+                <i className="fas fa-paper-plane"></i>
               </Button>
             ) : null}
           </InputGroup>
@@ -546,25 +557,6 @@ function ChatInterface({ chatStarted, handleEndClick }) {
             </div>
           )}
         </Form>
-
-        {/* Device selection dropdown */}
-        <div className="chat-sub-footer row justify-content-center">
-          <div className="col-12">
-            {/* Audio listen controls */}
-            <div className='audio-controls row mb-3'>
-              <div className='col-12'>
-                <Button variant={isMuted ? "secondary" : "outline-secondary"} className='mute-btn me-3' onClick={handleMute} aria-label="Mute button">
-                  <i className='fas fa-microphone-slash me-2'></i>
-                  {isMuted ? "Unmute" : "Mute"}
-                </Button>
-                <Button variant="primary" className='listen-btn' onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
-                  <i className="fas fa-broadcast-tower me-2"></i>
-                  {state.isListening ? "Listening..." : "Start Listening"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

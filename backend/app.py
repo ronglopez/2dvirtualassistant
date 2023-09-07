@@ -5,6 +5,7 @@ import time
 import tempfile
 import speech_recognition as sr
 import logging
+from html import escape
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -70,8 +71,8 @@ def input_message():
   # Check for image upload
   image_description, image_error = upload_image(request)
     
-  # Check for user text input
-  user_input = request.form.get('input') or None
+  # Check for user text input and sanitize it
+  user_input = escape(request.form.get('input')) or None
   
   # Error if no image file detected and no text input detected
   if not user_input and not image_description:
@@ -248,7 +249,6 @@ class VoiceListener:
       # Set the flag to stop listening
       self.should_stop = True
       return
-
 
     logging.info("\n==========================\nListening in background...")
     stop_listening = r.listen_in_background(mic, self.callback)
