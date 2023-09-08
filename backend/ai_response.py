@@ -12,7 +12,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Import settings
 from personalities import AI_PERSONALITY
-from config.settings import MAX_MESSAGES, accumulated_sentiment, ai_mood, TEMPERATURE, OPENAI_MODEL, MAX_TOKENS, USE_ELABS, ELABS_STREAM
+from config.load_settings import settings
+
+# Import settings variables
+MAX_MESSAGES = settings['MAIN_AI_SETTINGS']['MAX_MESSAGES']
+accumulated_sentiment = settings['SENTIMENT_ANALYSIS_SETTINGS']['accumulated_sentiment']
+ai_mood = settings['SENTIMENT_ANALYSIS_SETTINGS']['ai_mood']
+TEMPERATURE = settings['MAIN_AI_SETTINGS']['TEMPERATURE']
+OPENAI_MODEL = settings['MAIN_AI_SETTINGS']['OPENAI_MODEL']
+MAX_TOKENS = settings['MAIN_AI_SETTINGS']['MAX_TOKENS']
+USE_ELABS = settings['AI_AUDIO_SETTINGS']['USE_ELABS']
+ELABS_STREAM = settings['AI_AUDIO_SETTINGS']['ELABS_STREAM']
 
 # Import sentiment analysis
 from sentiment_analysis import update_ai_mood, analyze_sentiment_vader

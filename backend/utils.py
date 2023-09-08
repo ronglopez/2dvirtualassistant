@@ -11,7 +11,13 @@ from elevenlabs import generate, play
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
-from config.settings import MIN_SENTENCE_LENGTH, ELABS_MODEL, AI_VOICE, AI_VOICE_ID
+from config.load_settings import settings
+
+# Import settings variables
+AI_VOICE_ID = settings['AI_AUDIO_SETTINGS']['AI_VOICE_ID']
+AI_VOICE = settings['AI_AUDIO_SETTINGS']['AI_VOICE']
+ELABS_MODEL = settings['AI_AUDIO_SETTINGS']['ELABS_MODEL']
+MIN_SENTENCE_LENGTH = settings['MAIN_AI_SETTINGS']['MIN_SENTENCE_LENGTH']
 
 # Generate audio using ElevenLabs client
 def generate_audio(text, voice=AI_VOICE, model=ELABS_MODEL):

@@ -2,21 +2,26 @@
 # MAIN AI SETTINGS #
 ####################
 
-# Select Which Personality to Use
 AI_PERSONALITY = "Debug"                            # "Rin" or "Debug"
 USER_NAME = "Ronald"
 CHAR_LENGTH = 100                                   # Set character length for AI response (set in the system message)
 MIN_SENTENCE_LENGTH = 50                            # For non-streaming mode
+MAX_MESSAGES = 8                                    # Set max number of message to store in chat_history
 
 # ChatOpenAI Settings
 TEMPERATURE = 0.9                                   # Set from 0 to 1 (the closer to 1 the more creative the responses)
 OPENAI_MODEL = "gpt-3.5-turbo"                      # OpenAI chatbot engine
-OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"   # OpenAI embedding engine
-OPENAI_WHISPER_MODEL = "whisper-1"                  # OpenAI transcription engine
 MAX_TOKENS = 50                                     # Set max tockens for response from chatbot
 
-# Vector Database Settings
-PINECONE_INDEX_NAME = "openai-embeddings"           # Name of vector database (index name)
+
+#####################
+# AI AUDIO SETTINGS #
+#####################
+OPENAI_WHISPER_MODEL = "whisper-1"                  # OpenAI transcription engine
+LISTEN_KEYWORD_QUIT = "goodbye"                     # Best to use a word with more than 2 sylables + keep it lowercase
+
+# Periodic timer in listen mode
+LISTEN_PERIODIC_MESSAGE_TIMER = 60                  # Checks if it's time in seconds to send a periodic message
 
 # ElevenLabs Settings
 USE_ELABS = False                                   # Set to True if you want to use ElevenLabs, set to False for testing
@@ -24,6 +29,15 @@ ELABS_STREAM = True                                 # Set to True for voice stre
 AI_VOICE = "Freya"                                  # For standard client output (For generate_audio function)
 AI_VOICE_ID = "jsCqWAovK2LkecY7zXl4"                # ID required for streaming (For stream_audio function)
 ELABS_MODEL = "eleven_monolingual_v1"               # Voice engine
+
+
+#########################
+# AI EMBEDDING SETTINGS #
+#########################
+OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"   # OpenAI embedding engine
+
+# Vector Database Settings
+PINECONE_INDEX_NAME = "openai-embeddings"           # Name of vector database (index name)
 
 
 ###############################
@@ -44,20 +58,6 @@ ai_mood = "neutral"                                 # Initial AI mood
 # Sentiment analysis max levels
 MAX_LEVEL = 10                                      # Max level on the sentiment scale
 MIN_LEVEL = -10                                     # Min level on the sentiment scale
-
-
-#######################
-# MAIN CONFIGURATIONS #
-#######################
-
-# Listen mode quit keyword
-LISTEN_KEYWORD_QUIT = "goodbye"                     # Best to use a word with more than 2 sylables + keep it lowercase
-
-# Periodic timer in listen mode
-LISTEN_PERIODIC_MESSAGE_TIMER = 15                  # Checks if it's time in seconds to send a periodic message
-
-# Max chat history messages 
-MAX_MESSAGES = 8                                    # Set max number of message to store in chat_history
 
 
 #######################

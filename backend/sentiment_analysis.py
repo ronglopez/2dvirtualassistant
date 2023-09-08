@@ -9,7 +9,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Import settings
 from personalities import AI_PERSONALITY
-from config.settings import SENTIMENT_SCORES, MAX_LEVEL, MIN_LEVEL
+from config.load_settings import settings
+
+# Import settings variables
+SENTIMENT_SCORES = settings['SENTIMENT_ANALYSIS_SETTINGS']['SENTIMENT_SCORES']
+MAX_LEVEL = settings['SENTIMENT_ANALYSIS_SETTINGS']['MAX_LEVEL']
+MIN_LEVEL = settings['SENTIMENT_ANALYSIS_SETTINGS']['MIN_LEVEL']
 
 # Sentiment analysis 2.0
 def analyze_sentiment_vader(text):

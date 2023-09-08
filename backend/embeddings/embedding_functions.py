@@ -5,7 +5,11 @@ import pinecone
 from dotenv import load_dotenv
 
 # Import settings variables
-from config.settings import OPENAI_EMBEDDING_MODEL, PINECONE_INDEX_NAME
+from config.load_settings import settings
+
+# Import settings variables
+OPENAI_EMBEDDING_MODEL = settings['AI_EMBEDDING_SETTINGS']['OPENAI_EMBEDDING_MODEL']
+PINECONE_INDEX_NAME = settings['AI_EMBEDDING_SETTINGS']['PINECONE_INDEX_NAME']
 
 # Load environment variables
 load_dotenv("../config/.env")

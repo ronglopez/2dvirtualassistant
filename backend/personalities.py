@@ -1,4 +1,10 @@
-from config.settings import AI_PERSONALITY as SELECTED_PERSONALITY, USER_NAME, CHAR_LENGTH
+# Import settings
+from config.load_settings import settings
+
+# Import settings variables
+SELECTED_PERSONALITY = settings['MAIN_AI_SETTINGS']['AI_PERSONALITY']
+USER_NAME = settings['MAIN_AI_SETTINGS']['USER_NAME']
+CHAR_LENGTH = settings['MAIN_AI_SETTINGS']['CHAR_LENGTH']
 
 AI_DEBUG = {
   "name": "Debug",

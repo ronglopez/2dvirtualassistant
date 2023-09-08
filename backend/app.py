@@ -31,8 +31,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logging.info("Starting the application...")
 
 # Import settings
-from config.settings import LISTEN_KEYWORD_QUIT, LISTEN_PERIODIC_MESSAGE_TIMER, OPENAI_WHISPER_MODEL
 from personalities import AI_PERSONALITY
+from config.load_settings import settings
+from config.settings_api import settings_app
+
+# Import settings variables
+OPENAI_WHISPER_MODEL = settings['AI_AUDIO_SETTINGS']['OPENAI_WHISPER_MODEL']
+LISTEN_KEYWORD_QUIT = settings['AI_AUDIO_SETTINGS']['LISTEN_KEYWORD_QUIT']
+LISTEN_PERIODIC_MESSAGE_TIMER = settings['AI_AUDIO_SETTINGS']['LISTEN_PERIODIC_MESSAGE_TIMER']
+
+# Register the settings app with your main app
+app.register_blueprint(settings_app, url_prefix='/settings')
 
 # Import AI answer functions
 from ai_response import *

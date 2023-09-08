@@ -2,7 +2,7 @@
 import React, { useReducer, useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { ReactMic } from 'react-mic';
-import { Button, Form, InputGroup, FormControl, Dropdown } from 'react-bootstrap';
+import { Button, Form, Col, Row, InputGroup, FormControl, Dropdown } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 
 // Define Initial State
@@ -45,7 +45,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
   const fileInputRef = useRef(null);
 
   // Timers
-  const PERIODIC_MESSAGE_INTERVAL = 30000; // seconds in the thousands, ie. 15 seconds = 30000
+  const PERIODIC_MESSAGE_INTERVAL = 60000; // seconds in the thousands, ie. 60 seconds = 60000
   const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
   // State to hold available devices
@@ -418,8 +418,8 @@ function ChatInterface({ chatStarted, handleEndClick }) {
   // Frontend UI
   return (
     <div className="chat-interface d-flex flex-column justify-content-between">
-      <div className="chat-header__top row">
-        <div className="col-12">
+      <Row className="chat-header__top">
+        <Col xs={12}>
           <div className="d-inline-block me-3">
             <p className="text-light fs-7 fw-semibold mb-1">Select input device</p>
           </div>
@@ -440,10 +440,10 @@ function ChatInterface({ chatStarted, handleEndClick }) {
               </Dropdown.Menu>
             </Dropdown>
           </div>
-        </div>
-      </div>
-      <div className="chat-header row align-items-center">
-        <div className="col text-start">
+        </Col>
+      </Row>
+      <Row className="chat-header align-items-center">
+        <Col className="text-start">
           <div className='d-flex flex-row align-items-center'>
             <div className='profile-img'></div>
             <div className=''>
@@ -455,14 +455,14 @@ function ChatInterface({ chatStarted, handleEndClick }) {
                 'Ready to chat!'}
               </p>
             </div>
-            </div>
-        </div>
-        <div className="col text-end">
+          </div>
+        </Col>
+        <Col className="text-end">
           <Button variant="danger" onClick={handleEndClick}>
             End
           </Button>
-        </div>
-      </div>
+        </Col>
+      </Row>
 
       {/* Display chat log */}
       <div className="chat-log d-flex flex-column justify-content-end h-100 overflow-y-auto">
@@ -477,19 +477,19 @@ function ChatInterface({ chatStarted, handleEndClick }) {
 
       <div className="chat-footer">
         {/* Device selection dropdown */}
-        <div className="chat-sub-footer row justify-content-center">
-          <div className="col-12">
+        <Row className="chat-sub-footer justify-content-center">
+          <Col xs={12}>
             {/* Audio listen controls */}
-            <div className='audio-controls row'>
-              <div className='col-12'>
+            <Row className="audio-controls">
+              <Col xs={12}>
                 <Button variant="primary" className='listen-btn' onClick={handleListening} disabled={state.isRecording} aria-label="Listening mode button">
                   <i className="fas fa-broadcast-tower me-2"></i>
                   {state.isListening ? "Listening..." : "Start Listen Mode"}
                 </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
 
         {/* Input form */}
         <Form onSubmit={handleSubmit} className="chat-footer__input">
@@ -541,7 +541,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
           {/* Chip to display uploaded file name and thumbnail */}
           {uploadedFile && (
             <div className="chat-footer__upload-image-badge">
-              <span className="badge d-inline-flex bg-secondary justify-content-between">
+              <span className="badge d-inline-flex bg-secondary justify-content-between align-items-center">
                 <div className="chat-input__badge-content d-flex align-items-center">
                   <div className="chat-footer__uploaded-image me-3">
                     {thumbnailURL && <img src={thumbnailURL} alt="Upload Thumbnail" />}
@@ -550,9 +550,9 @@ function ChatInterface({ chatStarted, handleEndClick }) {
                     <p className="text-truncate mb-0">{uploadedFile.name}</p>
                   </div>
                 </div>
-                <button type="button" className="close" aria-label="Close" onClick={removeUploadedFile}>
-                  <span aria-hidden="true">&times;</span>
-                </button>
+                <Button variant="secondary" className="close" aria-label="Close" onClick={removeUploadedFile}>
+                  &times;
+                </Button>
               </span>
             </div>
           )}

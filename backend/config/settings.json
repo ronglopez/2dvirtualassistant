@@ -1,0 +1,41 @@
+{
+  "MAIN_AI_SETTINGS": {
+    "AI_PERSONALITY": "Debug",
+    "USER_NAME": "Ronald",
+    "CHAR_LENGTH": 100,
+    "MIN_SENTENCE_LENGTH": 50,
+    "MAX_MESSAGES": 8,
+    "TEMPERATURE": 0.9,
+    "OPENAI_MODEL": "gpt-3.5-turbo",
+    "MAX_TOKENS": 50
+  },
+  "AI_AUDIO_SETTINGS": {
+    "OPENAI_WHISPER_MODEL": "whisper-1",
+    "LISTEN_KEYWORD_QUIT": "goodbye",
+    "LISTEN_PERIODIC_MESSAGE_TIMER": 60,
+    "USE_ELABS": false,
+    "ELABS_STREAM": true,
+    "AI_VOICE": "Freya",
+    "AI_VOICE_ID": "jsCqWAovK2LkecY7zXl4",
+    "ELABS_MODEL": "eleven_monolingual_v1"
+  },
+  "AI_EMBEDDING_SETTINGS": {
+    "OPENAI_EMBEDDING_MODEL": "text-embedding-ada-002",
+    "PINECONE_INDEX_NAME": "openai-embeddings"
+  },
+  "SENTIMENT_ANALYSIS_SETTINGS": {
+    "SENTIMENT_SCORES": {
+      "positive": 3,
+      "neutral": 0,
+      "negative": -3
+    },
+    "accumulated_sentiment": 0,
+    "ai_mood": "neutral",
+    "MAX_LEVEL": 10,
+    "MIN_LEVEL": -10
+  },
+  "MODERATION_SETTINGS": {
+    "MOD_REPLACE_RESPONSE": false,
+    "MOD_REPLACE_PROFANITY": "-"
+  }
+}

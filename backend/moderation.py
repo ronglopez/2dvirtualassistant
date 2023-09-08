@@ -6,7 +6,11 @@ import random
 # Import settings
 from personalities import AI_PERSONALITY
 from better_profanity import profanity
-from config.settings import MOD_REPLACE_RESPONSE, MOD_REPLACE_PROFANITY
+from config.load_settings import settings
+
+# Import settings variables
+MOD_REPLACE_RESPONSE = settings['MODERATION_SETTINGS']['MOD_REPLACE_RESPONSE']
+MOD_REPLACE_PROFANITY = settings['MODERATION_SETTINGS']['MOD_REPLACE_PROFANITY']
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
