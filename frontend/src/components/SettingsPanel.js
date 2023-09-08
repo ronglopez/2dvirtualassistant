@@ -1,6 +1,6 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer, useState } from 'react';
 import axios from 'axios';
-import { Button, Form, Col, Row, Nav } from 'react-bootstrap';
+import { Button, Form, Col, Row, Nav, Toast } from 'react-bootstrap';
 
 // Define Initial State
 const initialState = {
@@ -52,6 +52,11 @@ const reducer = (state, action) => {
 const SettingsPanel = () => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  // State for showing Toasts
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showFailureToast, setShowFailureToast] = useState(false);
+
+  // Get settings from backend
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -82,27 +87,42 @@ const SettingsPanel = () => {
     dispatch({ type: 'SET_CHANGED', payload: updatedSettings });
   };
 
+  // Handle setting cancel button to revert changes
   const handleCancel = () => {
     dispatch({ type: 'REVERT_SETTINGS' });
   };
 
+  // Handle setting update
   const handleSubmit = async () => {
     try {
       await axios.post(`${process.env.REACT_APP_BACKEND_URL}/settings/update_settings`, state.settings);
       dispatch({ type: 'SET_NOT_CHANGED' });
       dispatch({ type: 'SET_SETTINGS', payload: { ...state.settings } });
-      alert('Settings updated successfully');
+      setShowSuccessToast(true);
     } catch (error) {
-      alert('Failed to Update');
+      setShowFailureToast(true);
     }
   };
 
+  // Handle nav tabs
   const handleTabChange = (key) => {
     dispatch({ type: 'SET_ACTIVE_TAB', payload: key });
   };
 
+  // Frontend UI
   return (
     <div className="settings-panel-content">
+
+      {/* Success Toast */}
+      <Toast className='text-bg-success position-fixed start-50 translate-middle' onClose={() => setShowSuccessToast(false)} show={showSuccessToast} delay={3000} autohide>
+        <Toast.Body>Settings updated successfully!</Toast.Body>
+      </Toast>
+
+      {/* Failure Toast */}
+      <Toast className='text-bg-danger position-fixed start-50 translate-middle' onClose={() => setShowFailureToast(false)} show={showFailureToast} delay={3000} autohide>
+        <Toast.Body>Failed to update settings.</Toast.Body>
+      </Toast>
+
       <h2 className='text-star mb-4'>Settings</h2>
       {state.isLoaded ? (
         <>
@@ -121,6 +141,9 @@ const SettingsPanel = () => {
                 </Nav.Item>
                 <Nav.Item>
                   <Nav.Link eventKey="moderation">Moderation</Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link eventKey="stream">Stream</Nav.Link>
                 </Nav.Item>
                 <Nav.Item>
                   <Nav.Link eventKey="advanced">Advanced</Nav.Link>
@@ -402,6 +425,25 @@ const SettingsPanel = () => {
                   </Col>
                 </Form>
               )}
+              {state.activeTab === 'stream' && (
+                <Form className='row'>
+
+                  {/* MAX_LEVEL */}
+                  
+
+                  {/* Form update buttons */}
+                  <Col xs={12}>
+                    <Row className='justify-content-end'>
+                      <Col xs={6} lg={3}>
+                        <Button variant="secondary" className='d-block w-100' onClick={handleCancel} disabled={!state.isChanged}>Cancel</Button>
+                      </Col>
+                      <Col xs={6} lg={3}>
+                        <Button variant="primary" className='settings-update-btn d-block w-100' onClick={handleSubmit} disabled={!state.isChanged}>Update</Button>
+                      </Col>
+                    </Row>
+                  </Col>
+                </Form>
+              )}
               {state.activeTab === 'advanced' && (
                 <Form className='row'>
 
@@ -481,7 +523,7 @@ const SettingsPanel = () => {
           </Row>
         </>
       ) : (
-        <p>Loading settings...</p>
+        <p className='text-light'>Loading settings...</p>
       )}
     </div>
   );

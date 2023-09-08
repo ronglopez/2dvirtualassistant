@@ -406,3 +406,8 @@ button.close {
 .settings-panel-content__tabs .nav-fill .nav-item {
   display: inline-block !important;
 }
+
+.toast {
+  font-weight: 600;
+  top: 50px;
+}
