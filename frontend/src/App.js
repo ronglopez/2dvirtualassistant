@@ -8,6 +8,7 @@ import SettingsPanel from './components/SettingsPanel';
 function App() {
   const [showModal, setShowModal] = useState(true);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -79,11 +80,15 @@ function App() {
       <div className="row">
         <div className="settings-panel col-md-6 col-lg-8">
           {/* Settings panel here */}
-          <SettingsPanel />
+          <SettingsPanel setIsStreaming={setIsStreaming} isStreaming={isStreaming} />
         </div>
         <div className="chat-panel col-md-6 col-lg-4">
           {/* Pass the chatStarted prop here */}
-          <ChatInterface chatStarted={!showModal} handleEndClick={handleEndClick} />
+          <ChatInterface 
+            chatStarted={!showModal} 
+            handleEndClick={handleEndClick} 
+            setIsStreaming={setIsStreaming} isStreaming={isStreaming}
+          />
         </div>
       </div>
     </div>

@@ -1,5 +1,8 @@
-import React, { useEffect, useReducer, useState } from 'react';
+// HISTORY STATE
+// Import necessary libraries
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import axios from 'axios';
+import io from 'socket.io-client';
 import { Button, Form, Col, Row, Nav, Toast } from 'react-bootstrap';
 
 // Define Initial State
@@ -10,7 +13,8 @@ const initialState = {
   isLoaded: false,
   isChanged: false,
   originalSettings: {},
-  activeTab: 'main'
+  activeTab: 'main',
+  isStreaming: false,
 };
 
 // Hardcoded options for dropdowns (Update these values as they come out)
@@ -35,6 +39,8 @@ const reducer = (state, action) => {
       return { ...state, isChanged: false };
     case 'SET_ACTIVE_TAB':
       return { ...state, activeTab: action.payload };
+    case 'SET_IS_STREAMING':
+      return { ...state, isStreaming: action.payload };
     case 'UPDATE_SETTING':
       return {
         ...state,
@@ -49,12 +55,22 @@ const reducer = (state, action) => {
   }
 };
 
-const SettingsPanel = () => {
+const SettingsPanel = ({ setIsStreaming, isStreaming }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const isStreamingRef = useRef(state.isStreaming);
+
+  // Create a ref to hold the socket connection
+  const streamingSocketRef = useRef(null);
 
   // State for showing Toasts
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showFailureToast, setShowFailureToast] = useState(false);
+
+  // State for Toast Message
+  const [toastMessage, setToastMessage] = useState("");
+
+  // State for YouTube Video ID and Streaming
+  const [videoID, setVideoID] = useState("");
 
   // Get settings from backend
   useEffect(() => {
@@ -98,8 +114,10 @@ const SettingsPanel = () => {
       await axios.post(`${process.env.REACT_APP_BACKEND_URL}/settings/update_settings`, state.settings);
       dispatch({ type: 'SET_NOT_CHANGED' });
       dispatch({ type: 'SET_SETTINGS', payload: { ...state.settings } });
+      setToastMessage("Settings updated successfully!");
       setShowSuccessToast(true);
     } catch (error) {
+      setToastMessage("Failed to update settings.");
       setShowFailureToast(true);
     }
   };
@@ -109,18 +127,84 @@ const SettingsPanel = () => {
     dispatch({ type: 'SET_ACTIVE_TAB', payload: key });
   };
 
+  // Handle the streaming state
+  const handleStreaming = () => {
+    if (state.isStreaming) {
+      // If currently streaming, stop streaming and emit 'stop_Streaming' event
+      dispatch({ type: 'SET_IS_STREAMING', payload: false });
+      if (streamingSocketRef.current) {
+        streamingSocketRef.current.emit('stop_youtube_stream');
+      }
+    } else {
+      // If not currently streaming, start streaming
+      dispatch({ type: 'SET_IS_STREAMING', payload: true });
+      if (streamingSocketRef.current) {
+        streamingSocketRef.current.emit('start_youtube_stream', { videoID: videoID });
+      }
+    }
+  };
+
+  const handleManualProcessMessage = () => {
+    streamingSocketRef.current.emit('manual_process_message');
+  };
+
+  // Handle the streaming state
+  useEffect(() => {
+    isStreamingRef.current = state.isStreaming;
+  }, [state.isStreaming]);
+
+  // Handle the streaming loop
+  useEffect(() => {
+    try {
+      // Create a Socket.IO connection
+      streamingSocketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
+  
+      // Start streaming toast
+      streamingSocketRef.current.on('success_streaming_toast', (data) => {
+        const { toast_message } = data;
+        setToastMessage(toast_message);
+        setShowSuccessToast(true);
+      });
+  
+      // Stop streaming toast
+      streamingSocketRef.current.on('stopped_streaming_toast', (data) => {
+        const { toast_message } = data;
+        setToastMessage(toast_message);
+        setShowSuccessToast(true);
+      });
+  
+      // Error streaming toast
+      streamingSocketRef.current.on('error_streaming_toast', (data) => {
+        const { toast_message } = data;
+        setToastMessage(toast_message);
+        setShowFailureToast(true);
+      });
+      
+    } catch (error) {
+      console.error('An error occurred while toggling YouTube streaming:', error);
+      setToastMessage(error);
+      setShowFailureToast(true);
+    }
+  
+    return () => {
+      if (streamingSocketRef.current) {
+        streamingSocketRef.current.disconnect();
+      }
+    };
+  }, []);
+
   // Frontend UI
   return (
     <div className="settings-panel-content">
 
       {/* Success Toast */}
       <Toast className='text-bg-success position-fixed start-50 translate-middle' onClose={() => setShowSuccessToast(false)} show={showSuccessToast} delay={3000} autohide>
-        <Toast.Body>Settings updated successfully!</Toast.Body>
+        <Toast.Body>{toastMessage}</Toast.Body>
       </Toast>
 
       {/* Failure Toast */}
       <Toast className='text-bg-danger position-fixed start-50 translate-middle' onClose={() => setShowFailureToast(false)} show={showFailureToast} delay={3000} autohide>
-        <Toast.Body>Failed to update settings.</Toast.Body>
+        <Toast.Body>{toastMessage}</Toast.Body>
       </Toast>
 
       <h2 className='text-star mb-4'>Settings</h2>
@@ -427,21 +511,28 @@ const SettingsPanel = () => {
               )}
               {state.activeTab === 'stream' && (
                 <Form className='row'>
-
-                  {/* MAX_LEVEL */}
-                  
-
-                  {/* Form update buttons */}
-                  <Col xs={12}>
-                    <Row className='justify-content-end'>
-                      <Col xs={6} lg={3}>
-                        <Button variant="secondary" className='d-block w-100' onClick={handleCancel} disabled={!state.isChanged}>Cancel</Button>
-                      </Col>
-                      <Col xs={6} lg={3}>
-                        <Button variant="primary" className='settings-update-btn d-block w-100' onClick={handleSubmit} disabled={!state.isChanged}>Update</Button>
-                      </Col>
-                    </Row>
-                  </Col>
+                  {/* YouTube Video ID */}
+                  <Form.Group className='settings-panel-content__form-item col-lg-6'>
+                    <Form.Label>YouTube Video ID:</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={videoID}
+                      onChange={(e) => setVideoID(e.target.value)}
+                      disabled={state.isStreaming}
+                    />
+                    <div className="form-text">Enter the YouTube Video ID for streaming.</div>
+                  </Form.Group>
+            
+                  {/* Toggle Streaming */}
+                  <Form.Group className='settings-panel-content__form-item col-lg-6'>
+                    <Button onClick={handleStreaming} disabled={!videoID}>
+                      {state.isStreaming ? "Stop Streaming" : "Start Streaming"}
+                    </Button>
+                    {/* New Button for Manual Message Processing */}
+                    <Button onClick={handleManualProcessMessage}>
+                      Process Message Manually
+                    </Button>
+                  </Form.Group>
                 </Form>
               )}
               {state.activeTab === 'advanced' && (

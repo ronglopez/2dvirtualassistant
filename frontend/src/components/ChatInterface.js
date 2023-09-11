@@ -1,3 +1,4 @@
+// HISTORY STATE
 // Import necessary libraries
 import React, { useReducer, useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
@@ -33,7 +34,7 @@ const reducer = (state, action) => {
 };
 
 // Main Chat Functions
-function ChatInterface({ chatStarted, handleEndClick }) {
+const ChatInterface = ({ chatStarted, handleEndClick, setIsStreaming, isStreaming }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
   const isListeningRef = useRef(state.isListening);
@@ -45,7 +46,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
   const fileInputRef = useRef(null);
 
   // Timers
-  const PERIODIC_MESSAGE_INTERVAL = 60000; // seconds in the thousands, ie. 60 seconds = 60000
+  const PERIODIC_MESSAGE_INTERVAL = 600000; // seconds in the thousands, ie. 60 seconds = 60000
   const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
   // State to hold available devices
@@ -57,6 +58,9 @@ function ChatInterface({ chatStarted, handleEndClick }) {
 
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
+
+  // Create a new ref for the streaming socket connection
+  const streamingSocketRef = useRef(null);
 
   // State to hold thumbnail URL
   const [thumbnailURL, setThumbnailURL] = useState(null);
@@ -109,12 +113,12 @@ function ChatInterface({ chatStarted, handleEndClick }) {
       formData.append('file', uploadedFile);
   
       // Add status message that an image was uploaded
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: `Image uploaded: ${uploadedFile.name}` } });
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: `Image uploaded: ${uploadedFile.name}`, message_from: 'image-uploader' } });
     }
 
     if (trimmedInput) {    
       // Add user's message to chat log for display
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput } });
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput, message_from: 'admin' } });
     }
   
     try {
@@ -129,7 +133,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
       const aiResponse = response.data;
   
       // Add AI's response to chat log
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: aiResponse } });
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: aiResponse, message_from: 'ai' } });
   
       // Reset the file input to "No file chosen"
       if (fileInputRef.current) {
@@ -177,8 +181,8 @@ function ChatInterface({ chatStarted, handleEndClick }) {
         const { transcription, ai_response } = response.data;
         
         // Add the transcribed audio and AI's response to the chat log
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription, message_from: 'admin' } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
 
         // Resume the periodic message timer
         console.log("Resuming periodic message timer after AI response...");
@@ -229,6 +233,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
   // Handle the listening state
   const handleListening = () => {
     if (state.isListening) {
+
       // If currently listening, stop listening and emit 'stop_listening' event
       dispatch({ type: 'SET_IS_LISTENING', payload: false });
       if (socketRef.current) {
@@ -260,7 +265,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
       const message = response.data;
 
       // Add the message to the chat log
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message } });
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message, message_from: 'ai' } });
     } catch (error) {
       console.error("Error fetching periodic message from backend:", error);
     }
@@ -321,7 +326,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
         const greeting = response.data;
 
         // Add AI's greeting to chat log
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: greeting } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: greeting, message_from: 'ai' } });
       } catch (error) {
         console.error("Error fetching greeting from backend:", error);
       }
@@ -351,15 +356,15 @@ function ChatInterface({ chatStarted, handleEndClick }) {
         const { transcription, ai_response } = data;
   
         // Add the transcribed audio and AI's response to the chat log
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription, message_from: 'admin' } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
   
         // Emit the 'start_listening' event to start listening with the selected device index
         socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
       });
 
       socketRef.current.on('listening_periodic_message', (message) => {
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message, message_from: 'ai' } });
 
         // Emit the 'start_listening' event to start listening with the selected device index
         socketRef.current.emit('start_listening', { device_index: selectedDeviceIndex });
@@ -373,7 +378,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
         console.log("Listening mode deactivated for inactivity ");
 
         // Add the transcribed audio and AI's response to the chat log
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
       });
   
       // Emit the 'start_listening' event to start listening with the selected device index
@@ -396,24 +401,59 @@ function ChatInterface({ chatStarted, handleEndClick }) {
         console.error("Listening quit:", data);
   
         // Add the transcribed audio and AI's response to the chat log
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription } });
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: transcription, message_from: 'admin' } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
       });
   
-      } else if (socketRef.current) {
-        // Disconnect the Socket.IO connection if isListening is false
-        socketRef.current.emit('stop_listening');
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    
-      // Clean up the Socket.IO connection when the component is unmounted
+    } else if (socketRef.current) {
+      // Disconnect the Socket.IO connection if isListening is false
+      socketRef.current.emit('stop_listening');
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  
+    // Clean up the Socket.IO connection when the component is unmounted
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
     };
   }, [state.isListening, selectedDeviceIndex, chatStarted]);
+
+  // Handle the streaming mode
+  useEffect(() => {
+
+    if (!chatStarted) return;
+
+    if (isStreaming) {
+      
+      // Create a Socket.IO connection only if it does not exist
+      streamingSocketRef.current = io(`${process.env.REACT_APP_BACKEND_URL}`);
+
+      // Set up event listeners for the Socket.IO connection
+      streamingSocketRef.current.on('new_message', (data) => {
+        const { ai_response, selected_message_content } = data;
+      
+        // Your existing code to dispatch actions
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: selected_message_content, message_from: 'youtube' } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
+      });
+
+    } else if (streamingSocketRef.current) {
+
+      // Clean up the Socket.IO connection when streaming is deactivated
+      streamingSocketRef.current.disconnect();
+      streamingSocketRef.current = null;
+    }
+
+    // Cleanup function
+    return () => {
+      if (streamingSocketRef.current) {
+        streamingSocketRef.current.disconnect();
+        streamingSocketRef.current = null;
+      }
+    };
+}, [isStreaming, chatStarted]);
 
   // Frontend UI
   return (
@@ -467,7 +507,7 @@ function ChatInterface({ chatStarted, handleEndClick }) {
       {/* Display chat log */}
       <div className="chat-log d-flex flex-column justify-content-end h-100 overflow-y-auto">
         {state.chatLog.map((entry, index) => (
-          <div key={index} className={`chat-entry ${entry.role}`}>
+          <div key={index} className={`chat-entry ${entry.role} ${entry.message_from}`}>
             <div className='chat-entry__bubble'>
               <p>{entry.content}</p>
             </div>
