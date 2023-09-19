@@ -11,7 +11,7 @@ from elevenlabs import generate, play
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
-from config.load_settings import settings
+from .config.load_settings import settings
 
 # Import settings variables
 AI_VOICE_ID = settings['AI_AUDIO_SETTINGS']['AI_VOICE_ID']

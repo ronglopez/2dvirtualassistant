@@ -1,6 +1,6 @@
 {
   "MAIN_AI_SETTINGS": {
-    "AI_PERSONALITY": "Debug",
+    "AI_PERSONALITY": "Rin",
     "USER_NAME": "Ronald",
     "CHAR_LENGTH": 100,
     "MIN_SENTENCE_LENGTH": 50,

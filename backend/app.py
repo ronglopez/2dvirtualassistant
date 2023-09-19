@@ -37,9 +37,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logging.info("Starting the application...")
 
 # Import settings
-from personalities import AI_PERSONALITY
-from config.load_settings import settings
-from config.settings_api import settings_app
+from .personalities import AI_PERSONALITY
+from .config.load_settings import settings
+from .config.settings_api import settings_app
 
 # Import settings variables
 OPENAI_WHISPER_MODEL = settings['AI_AUDIO_SETTINGS']['OPENAI_WHISPER_MODEL']
@@ -50,8 +50,8 @@ LISTEN_PERIODIC_MESSAGE_TIMER = settings['AI_AUDIO_SETTINGS']['LISTEN_PERIODIC_M
 app.register_blueprint(settings_app, url_prefix='/settings')
 
 # Import AI answer functions
-from ai_response import *
-from image_reader import *
+from .ai_response import *
+from .image_reader import *
 
 # Initialize Queue
 shared_queue = Queue(maxsize=1)
@@ -188,7 +188,7 @@ def monitor_queue(youtube_manager, queue):
 
 # Processes the selected youtube stream message
 def process_selected_message(selected_message):
-  data_to_emit = {'result': None}
+  data_to_emit = {'youtube_result': None}
 
   print("************************************")
 
@@ -196,13 +196,12 @@ def process_selected_message(selected_message):
   selected_message_content = selected_message["message"]
 
   print(selected_message_author)
-  
+  print(selected_message_content)
+
   # Get AI response
   ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 30 characters or less. {selected_message_author}: {selected_message_content}", 'user')
 
-  print(selected_message_content)
-
-  data_to_emit['result'] = {
+  data_to_emit['youtube_result'] = {
     'ai_response': ai_response,
     'selected_message_content': selected_message_content
   }
@@ -210,8 +209,8 @@ def process_selected_message(selected_message):
   print(f"Socket.IO connected?????????")
   
   try:
-    socketio.emit('new_message', data_to_emit['result'])
-    print("process_selected_message MESSAGE SENT")
+    socketio.emit('new_message', data_to_emit['youtube_result'])
+    print(f"process_selected_message: {data_to_emit['youtube_result']}")
   
   except Exception as e:
     logging.error(f"Specific error: {e}")
@@ -225,6 +224,8 @@ def handle_manual_process_message():
     selected_message = shared_queue.get()
     process_selected_message(selected_message)
     print("check_and_process_messages: MESSAGE PROCESSED")
+
+  print("DONE")
 
 # Initialize the YouTube Manager
 youtube_manager = YouTubeManager(shared_queue)
@@ -462,6 +463,7 @@ class VoiceListener:
 
     try:
       with sr.Microphone(device_index=device_index) as source:
+        logging.info(device_index)
         logging.info("Adjusting audio for ambience...")
         r.adjust_for_ambient_noise(source, duration=0.5)
 

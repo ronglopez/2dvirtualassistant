@@ -1,5 +1,5 @@
 # Import settings
-from config.load_settings import settings
+from .config.load_settings import settings
 
 # Import settings variables
 SELECTED_PERSONALITY = settings['MAIN_AI_SETTINGS']['AI_PERSONALITY']

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from tqdm.auto import tqdm
 
 # Import settings variables
-from config.load_settings import settings
+from ..config.load_settings import settings
 
 # Import settings variables
 OPENAI_EMBEDDING_MODEL = settings['AI_EMBEDDING_SETTINGS']['OPENAI_EMBEDDING_MODEL']

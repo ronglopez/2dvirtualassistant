@@ -3,12 +3,10 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/index.css';
 import './styles/App.css';
 import ChatInterface from './components/ChatInterface';
-import SettingsPanel from './components/SettingsPanel';
 
 function App() {
   const [showModal, setShowModal] = useState(true);
   const [showEndModal, setShowEndModal] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -78,18 +76,11 @@ function App() {
 
       {/* Main body */}
       <div className="row">
-        <div className="settings-panel col-md-6 col-lg-8">
-          {/* Settings panel here */}
-          <SettingsPanel setIsStreaming={setIsStreaming} isStreaming={isStreaming} />
-        </div>
-        <div className="chat-panel col-md-6 col-lg-4">
-          {/* Pass the chatStarted prop here */}
-          <ChatInterface 
-            chatStarted={!showModal} 
-            handleEndClick={handleEndClick} 
-            setIsStreaming={setIsStreaming} isStreaming={isStreaming}
-          />
-        </div>
+        {/* SettingsPanel + ChatInterface */}
+        <ChatInterface 
+          chatStarted={!showModal} 
+          handleEndClick={handleEndClick} 
+        />
       </div>
     </div>
   );

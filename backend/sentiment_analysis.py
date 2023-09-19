@@ -8,8 +8,8 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
-from personalities import AI_PERSONALITY
-from config.load_settings import settings
+from .personalities import AI_PERSONALITY
+from .config.load_settings import settings
 
 # Import settings variables
 SENTIMENT_SCORES = settings['SENTIMENT_ANALYSIS_SETTINGS']['SENTIMENT_SCORES']

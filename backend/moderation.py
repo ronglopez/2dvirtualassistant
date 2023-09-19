@@ -4,9 +4,9 @@ import logging
 import random
 
 # Import settings
-from personalities import AI_PERSONALITY
+from .personalities import AI_PERSONALITY
 from better_profanity import profanity
-from config.load_settings import settings
+from .config.load_settings import settings
 
 # Import settings variables
 MOD_REPLACE_RESPONSE = settings['MODERATION_SETTINGS']['MOD_REPLACE_RESPONSE']

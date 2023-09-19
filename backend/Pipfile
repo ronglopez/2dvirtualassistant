@@ -19,6 +19,7 @@ better-profanity = "*"
 nltk = "*"
 pyaudio = "*"
 pytchat = "*"
+simple-websocket = "*"
 
 [dev-packages]
 

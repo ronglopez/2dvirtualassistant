@@ -138,6 +138,7 @@ const SettingsPanel = ({ setIsStreaming, isStreaming }) => {
     } else {
       // If not currently streaming, start streaming
       dispatch({ type: 'SET_IS_STREAMING', payload: true });
+
       if (streamingSocketRef.current) {
         streamingSocketRef.current.emit('start_youtube_stream', { videoID: videoID });
       }
@@ -158,6 +159,7 @@ const SettingsPanel = ({ setIsStreaming, isStreaming }) => {
     try {
       // Create a Socket.IO connection
       streamingSocketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
+      console.log(streamingSocketRef.current)
   
       // Start streaming toast
       streamingSocketRef.current.on('success_streaming_toast', (data) => {

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import json
 
-from config.load_settings import settings
+from .load_settings import settings
 
 # Import main AI settings variables
 AI_PERSONALITY = settings['MAIN_AI_SETTINGS']['AI_PERSONALITY']
@@ -65,7 +65,7 @@ settings_data = {
   "MAX_LEVEL": MAX_LEVEL,
   "MIN_LEVEL": MIN_LEVEL,
   "MOD_REPLACE_RESPONSE": MOD_REPLACE_RESPONSE,
-  "MOD_REPLACE_PROFANITY": MOD_REPLACE_PROFANITY,
+  "MOD_REPLACE_PROFANITY": MOD_REPLACE_PROFANITY
 }
 
 @settings_app.route('/get_settings', methods=['GET'])
@@ -76,29 +76,25 @@ def get_settings():
     return jsonify({"error": str(e)}), 400
 
 @settings_app.route('/update_settings', methods=['POST'])
-def update_settings():
+def update_settings(): 
   try:
-    
+
     # Get the new settings from the request body
     new_settings = request.json
-    
-    # Load existing settings from JSON file
-    with open('config/settings.json', 'r') as f:
-      existing_settings = json.load(f)
-    
-    # Update the settings
-    for category, settings_group in existing_settings.items():
+
+    # Update the in-memory settings variables directly
+    for category, settings_group in settings.items():
       for key, value in new_settings.items():
         if key in settings_group:
           if isinstance(value, dict):  # Handle nested settings
-            existing_settings[category][key].update(value)
+            settings[category][key].update(value)
           else:
-            existing_settings[category][key] = value
-    
+            settings[category][key] = value
+
     # Save updated settings back to JSON file
     with open('config/settings.json', 'w') as f:
-      json.dump(existing_settings, f, indent=2)
-    
+      json.dump(settings, f, indent=2)
+
     return jsonify({"message": "Settings updated successfully"}), 200
 
   except Exception as e:

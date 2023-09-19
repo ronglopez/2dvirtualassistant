@@ -4,15 +4,15 @@ import logging
 import openai
 
 # Import utility files
-from utils import split_text, speak_sentences, stream_audio, default_audio
-from moderation import moderate_output
+from .utils import split_text, speak_sentences, stream_audio, default_audio
+from .moderation import moderate_output
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Import settings
-from personalities import AI_PERSONALITY
-from config.load_settings import settings
+from .personalities import AI_PERSONALITY
+from .config.load_settings import settings
 
 # Import settings variables
 MAX_MESSAGES = settings['MAIN_AI_SETTINGS']['MAX_MESSAGES']
@@ -25,10 +25,10 @@ USE_ELABS = settings['AI_AUDIO_SETTINGS']['USE_ELABS']
 ELABS_STREAM = settings['AI_AUDIO_SETTINGS']['ELABS_STREAM']
 
 # Import sentiment analysis
-from sentiment_analysis import update_ai_mood, analyze_sentiment_vader
+from .sentiment_analysis import update_ai_mood, analyze_sentiment_vader
 
 # Import embeddings
-from embeddings.embedding_functions import search_query
+from .embeddings.embedding_functions import search_query
 
 # Initialize an empty list to store chat messages
 chat_history = []
