@@ -4,7 +4,7 @@ import logging
 import openai
 
 # Import utility files
-from .utils import split_text, speak_sentences, stream_audio, default_audio
+from .response_audio import split_text, speak_sentences, stream_audio, default_audio
 from .moderation import moderate_output
 
 # Configure logging

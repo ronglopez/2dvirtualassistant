@@ -41,8 +41,7 @@
    Chat Panel
    ========================================================================== */
 
-.chat-panel,
-.chat-interface {
+.chat-panel {
   height: 100vh;
 }
 
@@ -50,7 +49,7 @@
   text-align: center;
 }
 
-.chat-header {
+.chat-panel__header {
   background-color: #f1f1f1;
   padding-bottom: 1rem;
   padding-top: 1rem;
@@ -111,7 +110,17 @@
 }
 
 .chat-log {
-  padding: 0 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0px;
+  padding-bottom: 1rem;
+  padding-top: 1rem;
+  overflow-y: auto;
+}
+
+.chat-interface {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-log .chat-entry {
@@ -239,12 +248,12 @@ button.close {
   max-width: calc(100% - 4rem);
 }
 
-.chat-header__top {
+.chat-panel__top {
   background-color: #f1f1f1;
   padding-top: 1rem;
 }
 
-.chat-header__top {
+.chat-panel__top {
   background-color: #6c757d;
   padding-bottom: 0.25rem;
   padding-top: 0.25rem;
@@ -321,7 +330,6 @@ button.close {
    ========================================================================== */
 
 .settings-panel {
-  background-color: #3d0894;
   border-right: 1px solid #ddd;
 }
 
@@ -332,14 +340,17 @@ button.close {
   }
 }
 
-.settings-panel h2 {
-  color: #fff;
+.settings-panel-content {
+  text-align: left;
 }
 
-.settings-panel-content {
-  height: 100%;
-  padding: 2rem 0 0;
-  text-align: left;
+.settings-panel-content__header {
+  background-color: #3d0894;
+  padding-top: 2rem;
+}
+
+.settings-panel-content h2 {
+  color: #fff;
 }
 
 .settings-panel-content__tabs {
@@ -352,8 +363,6 @@ button.close {
 }
 
 .settings-panel-content__tabs .nav-item {
-  height: 40px;
-  margin-bottom: 0.5rem;
 }
 
 .settings-panel-content__tabs .nav-link {
@@ -384,7 +393,6 @@ button.close {
 
 @media (min-width: 768px) {
   .settings-panel-content__tab-content {
-    height: calc(100% - 6.5rem);
     overflow-y: auto;
   }
 }
@@ -399,7 +407,6 @@ button.close {
 }
 
 .settings-panel-content__tabs .nav-fill {
-  overflow-x: auto;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
 }

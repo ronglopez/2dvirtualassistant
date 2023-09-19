@@ -76,7 +76,7 @@ def image2text(filename):
     logging.error(f"An error occurred while using Image-To-Text model: {e}")
 
   try:
-      return response.json()[0]['generated_text']
+    return response.json()[0]['generated_text']
   
   except KeyError:
     logging.error(f"KeyError: The key does not exist in the JSON response.")

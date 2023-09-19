@@ -1,13 +1,13 @@
 {
   "MAIN_AI_SETTINGS": {
-    "AI_PERSONALITY": "Rin",
+    "AI_PERSONALITY": "Debug",
     "USER_NAME": "Ronald",
     "CHAR_LENGTH": 100,
     "MIN_SENTENCE_LENGTH": 50,
     "MAX_MESSAGES": 8,
     "TEMPERATURE": 0.9,
     "OPENAI_MODEL": "gpt-3.5-turbo",
-    "MAX_TOKENS": 50
+    "MAX_TOKENS": 100
   },
   "AI_AUDIO_SETTINGS": {
     "OPENAI_WHISPER_MODEL": "whisper-1",
