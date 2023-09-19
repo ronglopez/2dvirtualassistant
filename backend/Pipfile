@@ -20,6 +20,7 @@ nltk = "*"
 pyaudio = "*"
 pytchat = "*"
 simple-websocket = "*"
+google-cloud-texttospeech = "*"
 
 [dev-packages]
 

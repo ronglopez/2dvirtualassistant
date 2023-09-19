@@ -96,7 +96,7 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
   const fileInputRef = useRef(null);
 
   // Timers
-  const PERIODIC_MESSAGE_INTERVAL = 600000; // seconds in the thousands, ie. 60 seconds = 60000
+  const PERIODIC_MESSAGE_INTERVAL = 60000; // seconds in the thousands, ie. 60 seconds = 60000
   const RECORD_MESSAGE_TIMEOUT = 10000; // seconds in the thousands, ie. 10 seconds = 10000
 
   // State to hold available devices
@@ -848,6 +848,18 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
                             label="ELabs Stream"
                             name="ELABS_STREAM"
                             checked={state.settings.ELABS_STREAM}
+                            onChange={handleChange}
+                          />
+                        </Form.Group>
+
+                        {/* USE_GOOGLE */}
+                        <Form.Group>
+                          <Form.Check 
+                            type="switch"
+                            id="USE_GOOGLE"
+                            label="Use Google TTS"
+                            name="USE_GOOGLE"
+                            checked={state.settings.USE_GOOGLE}
                             onChange={handleChange}
                           />
                         </Form.Group>

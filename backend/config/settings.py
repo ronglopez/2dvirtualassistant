@@ -29,6 +29,7 @@ ELABS_STREAM = True                                 # Set to True for voice stre
 AI_VOICE = "Freya"                                  # For standard client output (For generate_audio function)
 AI_VOICE_ID = "jsCqWAovK2LkecY7zXl4"                # ID required for streaming (For stream_audio function)
 ELABS_MODEL = "eleven_monolingual_v1"               # Voice engine
+USE_GOOGLE = True                                   # Set to True if you want to use Google Cloud's TTS
 
 
 #########################

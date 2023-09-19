@@ -1,8 +1,24 @@
 # Import necessary libraries
 import os
+from dotenv import load_dotenv
 import requests
 import subprocess
 import logging
+import tempfile
+import pyaudio
+import wave
+
+# Load environment variables from .env file
+load_dotenv("config/.env")
+
+# Get GOOGLE_APPLICATION_CREDENTIALS from .env file
+google_app_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+# Import Google Cloud text-to-speech
+from google.cloud import texttospeech
+
+# Set the environment variable
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_app_creds
 
 # Import ElevenLabs text-to-speech
 from elevenlabs import generate, play
@@ -95,6 +111,84 @@ def stream_audio(text, voice=AI_VOICE_ID, model=ELABS_MODEL, api_key=os.environ.
   # close the ffplay process when finished
   ffplay_proc.stdin.close()
   ffplay_proc.wait()
+
+# Function to generate audio using Google Text-to-Speech
+def google_generate_audio(text):
+    
+  # Initialize the TextToSpeech client
+  client = texttospeech.TextToSpeechClient()
+  
+  # Prepare the text input for the Text-to-Speech API
+  input_text = texttospeech.SynthesisInput(text=text)
+  
+  # Configure voice settings such as language, voice type, and gender
+  voice = texttospeech.VoiceSelectionParams(
+    language_code="en-US",
+    name="en-US-Standard-F",
+    ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+  )
+  
+  # Configure audio settings like the audio file format and speaking rate
+  audio_config = texttospeech.AudioConfig(
+    audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+    speaking_rate=1.25  # Increase this number to speed up speech
+  )
+  
+  # Make the API call to generate speech
+  response = client.synthesize_speech(
+    input=input_text, 
+    voice=voice, 
+    audio_config=audio_config
+  )
+  
+  # Create a temporary file to store the audio
+  with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+      
+    # Write the audio data to the temporary file
+    temp_file.write(response.audio_content)
+    
+    # Store the path to the temporary file
+    temp_file_path = temp_file.name
+
+  try:
+    
+    # Play the audio using your existing 'play' function
+    play_audio_with_pyaudio(temp_file_path)
+    
+    # Delete the temporary file after playing
+    os.remove(temp_file_path)
+      
+  except Exception as e:
+    
+    # If something goes wrong, delete the temporary file and log the error
+    os.remove(temp_file_path)
+    logging.error("Error processing Google TTS request:", exc_info=True)
+
+# Function to play temp audio files
+def play_audio_with_pyaudio(file_path):
+    
+  # Open the file
+  wf = wave.open(file_path, 'rb')
+
+  # Initialize PyAudio
+  p = pyaudio.PyAudio()
+
+  # Open a streaming stream
+  stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+                  channels=wf.getnchannels(),
+                  rate=wf.getframerate(),
+                  output=True)
+
+  # Play audio
+  data = wf.readframes(1024)
+  while len(data) > 0:
+    stream.write(data)
+    data = wf.readframes(1024)
+
+  # Close stream and PyAudio
+  stream.stop_stream()
+  stream.close()
+  p.terminate()
 
 # Set default voice engine
 def default_audio(text):

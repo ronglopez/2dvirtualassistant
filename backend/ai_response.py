@@ -4,7 +4,7 @@ import logging
 import openai
 
 # Import utility files
-from .response_audio import split_text, speak_sentences, stream_audio, default_audio
+from .response_audio import split_text, speak_sentences, stream_audio, google_generate_audio, default_audio
 from .moderation import moderate_output
 
 # Configure logging
@@ -23,6 +23,7 @@ OPENAI_MODEL = settings['MAIN_AI_SETTINGS']['OPENAI_MODEL']
 MAX_TOKENS = settings['MAIN_AI_SETTINGS']['MAX_TOKENS']
 USE_ELABS = settings['AI_AUDIO_SETTINGS']['USE_ELABS']
 ELABS_STREAM = settings['AI_AUDIO_SETTINGS']['ELABS_STREAM']
+USE_GOOGLE = settings['AI_AUDIO_SETTINGS']['USE_GOOGLE']
 
 # Import sentiment analysis
 from .sentiment_analysis import update_ai_mood, analyze_sentiment_vader
@@ -191,6 +192,18 @@ def get_ai_response(message_input, message_role, image_description=None):
       logging.error(f"An error occurred while using ElevenLabs: {e}")
       ai_response = f"{ai_response} {AI_PERSONALITY['error_message']}"
       
+      # Fallback to default system text-to-speech functions
+      default_audio(ai_response)
+
+  # Google Cloud text-to-speech functions
+  elif USE_GOOGLE:
+    try:
+      google_generate_audio(ai_response)
+
+    except Exception as e:
+      logging.error(f"An error occurred while using Google Cloud's TTS: {e}")
+      ai_response = f"{ai_response} {AI_PERSONALITY['error_message']}"
+
       # Fallback to default system text-to-speech functions
       default_audio(ai_response)
 
