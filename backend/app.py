@@ -98,13 +98,11 @@ class YouTubeManager:
       # Create a new process for YouTube live chat and start it
       self.process = Process(target=self.youtube_live_chat, args=(video_id,))
       self.process.start()
-      print("start_streaming YOUTUBE LIVE CHAT STARTED")
 
       # Start the monitor thread
       self.stop_monitor_thread = False
       self.monitor_thread = Thread(target=monitor_queue, args=(self, self.queue))
       self.monitor_thread.start()
-      print("start_streaming MONITORING STARTED")
 
   # Function to stop streaming
   def stop_streaming(self):
@@ -125,8 +123,6 @@ class YouTubeManager:
       self.monitor_thread.join()
       self.monitor_thread = None
 
-    print("stop_streaming MONITORING STOPPED")
-
   # Function to check if streaming is active
   def is_streaming_active(self):
     return self.is_active
@@ -137,12 +133,12 @@ class YouTubeManager:
     # Create a chat object using pytchat
     chat = pytchat.create(video_id=video_id)
 
-    # Initialize an empty list to collect chat messages
-    chat_messages = []
-
     # Loop to fetch chat as long as the chat and stream are alive
     while chat.is_alive() and self.is_active:
       try:
+
+        # Initialize an empty list to collect chat messages
+        chat_messages = []
 
         # Fetch each chat item
         for c in chat.get().sync_items():
@@ -156,13 +152,15 @@ class YouTubeManager:
         # Randomly select a chat message and check if queue is full
         if len(chat_messages) > 0:
           selected_message = random.choice(chat_messages)
+
+          # Trim the selected message to 200 characters if it exceeds that
+          selected_message['message'] = selected_message['message'][:200]
           
           # Check if the queue is full
           if self.queue.full():
             _ = self.queue.get()  # Remove the oldest item
           
           self.queue.put(selected_message)  # Put the new item
-          print(f"SELECTED MESSAGE: {selected_message}")
 
       # Terminate chat on manual interrupt
       except KeyboardInterrupt:
@@ -171,13 +169,11 @@ class YouTubeManager:
 
       # Print any other exceptions
       except Exception as e:
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred: {e}")
 
-      time.sleep(5)
+      time.sleep(2)
 
-# Thread that monitors and updates the youtube stream queue
 def monitor_queue(youtube_manager, queue):
-  print("monitor_queue MONITORING QUEUE STARTED")
   
   while True:
     if youtube_manager.stop_monitor_thread:
@@ -190,51 +186,54 @@ def monitor_queue(youtube_manager, queue):
 
     if not queue.empty():
       selected_message = queue.get()
-      queue.put(selected_message)
-      print("monitor_queue: SELECTED MESSAGE ADDED TO GLOBAL QUEUE")
+      
+      selected_message_author = selected_message["author"]
+      selected_message_content = selected_message["message"]
 
-    time.sleep(5)
+      # Get AI response
+      ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 50 characters or less. {selected_message_author}: {selected_message_content}", 'user')
 
-# Processes the selected youtube stream message
-def process_selected_message(selected_message):
-  data_to_emit = {'youtube_result': None}
+      data_to_emit = {
+        'ai_response': ai_response,
+        'selected_message_author': selected_message_author,
+        'selected_message_content': selected_message_content
+      }
+      
+      try:
+        socketio.emit('new_message', data_to_emit, namespace='/')
+      except Exception as e:
+        logging.error(f"Specific error: {e}")
 
-  print("************************************")
+      time.sleep(2)
 
-  selected_message_author = selected_message["author"]
-  selected_message_content = selected_message["message"]
+# DEPRECATED - Processes the selected youtube stream message
+# def process_selected_message(selected_message):
+#   data_to_emit = {'youtube_result': None}
 
-  print(selected_message_author)
-  print(selected_message_content)
+#   selected_message_author = selected_message["author"]
+#   selected_message_content = selected_message["message"]
 
-  # Get AI response
-  ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 30 characters or less. {selected_message_author}: {selected_message_content}", 'user')
+#   # Get AI response
+#   ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 30 characters or less. {selected_message_author}: {selected_message_content}", 'user')
 
-  data_to_emit['youtube_result'] = {
-    'ai_response': ai_response,
-    'selected_message_content': selected_message_content
-  }
-
-  print(f"Socket.IO connected?????????")
+#   data_to_emit['youtube_result'] = {
+#     'ai_response': ai_response,
+#     'selected_message_content': selected_message_content
+#   }
   
-  try:
-    socketio.emit('new_message', data_to_emit['youtube_result'])
-    print(f"process_selected_message: {data_to_emit['youtube_result']}")
+#   try:
+#     socketio.emit('new_message', data_to_emit['youtube_result'])
   
-  except Exception as e:
-    logging.error(f"Specific error: {e}")
+#   except Exception as e:
+#     logging.error(f"Specific error: {e}")
   
-# Check and process YouTube comments
-@socketio.on('manual_process_message')
-def handle_manual_process_message():
-  print("check_and_process_messages: CHECKING")
+# DEPRECATED - Check and process YouTube comments
+# @socketio.on('manual_process_message')
+# def handle_manual_process_message():
 
-  if not shared_queue.empty():
-    selected_message = shared_queue.get()
-    process_selected_message(selected_message)
-    print("check_and_process_messages: MESSAGE PROCESSED")
-
-  print("DONE")
+#   if not shared_queue.empty():
+#     selected_message = shared_queue.get()
+#     process_selected_message(selected_message)
 
 # Initialize the YouTube Manager
 youtube_manager = YouTubeManager(shared_queue)
@@ -242,11 +241,9 @@ youtube_manager = YouTubeManager(shared_queue)
 # Handle YouTube start stream
 @socketio.on('start_youtube_stream')
 def handle_start_youtube_stream(data):
-  print("++++++++++STARTED+++++++++++")
 
   # Extract video_id from the data
   video_id = data.get('videoID')
-  print(video_id)
 
   # Return a message indicating the streaming state has changed
   try:
@@ -256,24 +253,17 @@ def handle_start_youtube_stream(data):
 
   youtube_manager.start_streaming(video_id)
 
-  print("+++++SocketIO: YouTube streaming started.+++++")
-
 # Handle YouTube stop stream
 @socketio.on('stop_youtube_stream')
 def handle_stop_youtube_stream():
-
-  print("++++++++++STOPPED+++++++++++")
 
   youtube_manager.stop_streaming()
 
   # Return a message indicating the streaming state has changed
   try:
-    print("++++++++++STOPPED 2+++++++++++")
     socketio.emit('stopped_streaming_toast', {"toast_message": "Streaming Stopped successfully!"})
   except Exception as e:
     socketio.emit('error_streaming_toast', {"toast_message": str(e)})
-
-  print("+++++SocketIO: YouTube streaming stopped.+++++")
 
 # Endpoints to handle voice-based user prompts and stopping voice listening
 voice_listener = VoiceListener()
@@ -282,7 +272,7 @@ socketio.on('stop_listening')(voice_listener.handle_stop_listening)
 
 # Cleanup function
 def cleanup(signum, frame):
-  print("Cleaning up...")
+  logging.info("Cleaning up...")
   
   # Stop streaming if active
   if youtube_manager.is_streaming_active():

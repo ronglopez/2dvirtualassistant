@@ -17,6 +17,7 @@ dwsync.xml
 
 # environment files
 backend/config/.env
+backend/config/dvirtualassistant-398421-2e90915a3bb6.json
 frontend/.env
 .env.local
 .env.development.local

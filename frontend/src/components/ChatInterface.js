@@ -410,9 +410,10 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
     }
   };
 
-  const handleManualProcessMessage = () => {
-    streamingSocketRef.current.emit('manual_process_message');
-  };
+  // DEPRECATED
+  // const handleManualProcessMessage = () => {
+  //   streamingSocketRef.current.emit('manual_process_message');
+  // };
 
 
   //
@@ -454,14 +455,10 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
 
       // Set up event listeners for the Socket.IO connection
       streamingSocketRef.current.on('new_message', (data) => {
-        console.log("WORKS 3")
-
-        const { ai_response, selected_message_content } = data;
-
-        console.log("WORKS 4")
+        const { ai_response, selected_message_content, selected_message_author } = data;
       
         // Your existing code to dispatch actions
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: selected_message_content, message_from: 'youtube' } });
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: selected_message_author + ": " + selected_message_content, message_from: 'youtube' } });
         dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
       });
       
@@ -477,34 +474,6 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
       }
     };
   }, []);
-
-  // Handle the streaming mode
-  useEffect(() => {
-    
-    // Create a Socket.IO connection only if it does not exist
-    streamingSocketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
-
-    // Set up event listeners for the Socket.IO connection
-    streamingSocketRef.current.on('new_message', (data) => {
-      console.log("WORKS 3")
-
-      const { ai_response, selected_message_content } = data;
-
-      console.log("WORKS 4")
-    
-      // Your existing code to dispatch actions
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: selected_message_content, message_from: 'youtube' } });
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
-    });
-
-    // Cleanup function
-    return () => {
-      if (streamingSocketRef.current) {
-        streamingSocketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-}, []);
 
 
   //
@@ -1013,10 +982,10 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
                           <Button onClick={handleStreaming} disabled={!videoID}>
                             {state.isStreaming ? "Stop Streaming" : "Start Streaming"}
                           </Button>
-                          {/* New Button for Manual Message Processing */}
-                          <Button onClick={handleManualProcessMessage}>
+                          {/* DEPRECATED - New Button for Manual Message Processing */}
+                          {/* <Button onClick={handleManualProcessMessage}>
                             Process Message Manually
-                          </Button>
+                          </Button> */}
                         </Form.Group>
                       </Form>
                     )}

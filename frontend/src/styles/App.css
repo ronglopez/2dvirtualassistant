@@ -112,8 +112,8 @@
 .chat-log {
   flex: 1 1 auto;
   min-height: 0px;
-  padding-bottom: 1rem;
-  padding-top: 1rem;
+  padding: 1rem;
+  margin: 0 -12px;
   overflow-y: auto;
 }
 
@@ -176,6 +176,11 @@
   background-color: #6610F2;
   color: #fff;
   margin-left: auto;
+}
+
+.chat-log .chat-entry.youtube .chat-entry__bubble{
+  background-color: #dc3545;
+  font-weight: 600;
 }
 
 .chat-footer__input {
@@ -360,9 +365,6 @@ button.close {
 
 .settings-panel-content__tabs .nav-tabs {
   border-bottom: none;
-}
-
-.settings-panel-content__tabs .nav-item {
 }
 
 .settings-panel-content__tabs .nav-link {
