@@ -109,10 +109,16 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
   // Create a ref to hold the socket connection
   const socketRef = useRef(null);
 
+  // Create a ref to hold the socket connection
+  const inputSocketRef = useRef(null);
+
+  // Create a ref to hold the socket connection
+  const streamingSocketRef = useRef(null);
+
   // State to hold thumbnail URL
   const [thumbnailURL, setThumbnailURL] = useState(null);
 
-  /// Function to handle file change and generate thumbnail
+  // Function to handle file change and generate thumbnail
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     setUploadedFile(file);
@@ -142,74 +148,87 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
   // Handle the submission of text input to the backend
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     // Pause the periodic message timer
     console.log("Pausing periodic message timer due to recording...");
     setIsTimerPaused(true);
-  
+
     dispatch({ type: 'SET_IS_PROCESSING', payload: true });
-  
+
     // Trim whitespace
     const trimmedInput = state.userInput.trim();
-  
-    // Create FormData to hold both text and file data
-    const formData = new FormData();
-    formData.append('input', trimmedInput);
-  
-    if (uploadedFile) {
-      formData.append('file', uploadedFile);
-  
-      // Add status message that an image was uploaded
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: `Image uploaded: ${uploadedFile.name}`, message_from: 'image-uploader' } });
-    }
 
-    if (trimmedInput) {    
-      // Add user's message to chat log for display
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput, message_from: 'admin' } });
+    // Create object to hold both text and file data
+    const data = { input: trimmedInput };
+
+    if (uploadedFile) {
+      // Convert the uploaded file to base64 and add it to data object
+      const reader = new FileReader();
+      reader.readAsDataURL(uploadedFile);
+      reader.onloadend = function () {
+        const base64data = reader.result.split(",")[1];
+        data.file_bytes = base64data;
+        data.filename = uploadedFile.name;
+
+        // Add status message that an image was uploaded
+        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'system', content: `Image uploaded: ${uploadedFile.name}`, message_from: 'image-uploader' } });
+
+        // Send data to backend via WebSocket
+        inputSocketRef.current.emit('input_message', data);
+
+        // Perform the rest of the actions
+        completeSubmission();
+      };
+    } else {
+      // Send data to backend via WebSocket
+      inputSocketRef.current.emit('input_message', data);
+
+      // Perform the rest of the actions
+      completeSubmission();
     }
-  
-    try {
-      
-      // Send FormData to backend and get AI's response
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/input_message/input_message`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-  
-      const aiResponse = response.data;
-  
-      // Add AI's response to chat log
-      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: aiResponse, message_from: 'ai' } });
-  
-      // Reset the file input to "No file chosen"
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-  
-      // Resume the periodic message timer
-      console.log("Resuming periodic message timer after AI response...");
-      setIsTimerPaused(false);
-  
-    } catch (error) {
-      console.error("Error communicating with backend:", error);
-    }
-  
+  };
+
+  // Helper function to perform actions after sending the data to the backend
+  const completeSubmission = () => {
     // Clear the input field and uploaded file state
     dispatch({ type: 'SET_USER_INPUT', payload: '' });
     setUploadedFile(null);
     dispatch({ type: 'SET_IS_PROCESSING', payload: false });
-  
+
     // Focus on the input field after processing is complete
     setTimeout(() => {
       inputRef.current.focus();
     }, 100);
-  
+
     // Clear the existing interval and set up a new one
     console.log("Clearing and resetting periodic message interval due to text input...");
     clearInterval(periodicMessageIntervalRef.current);
     periodicMessageIntervalRef.current = setInterval(fetchPeriodicMessage, PERIODIC_MESSAGE_INTERVAL);
   };
+
+  // Event Listener for Input Messages
+  useEffect(() => {
+    if (!chatStarted) return;
+
+    // Initialize socket connection
+    inputSocketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
+    
+    // Listen for incoming 'receive_input' messages from the backend
+    inputSocketRef.current.on('receive_input', (message) => {
+
+      // Add the received message to the chat log
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: message, message_from: 'ai' } });
+      
+      // Resume the periodic message timer
+      console.log("Resuming periodic message timer after AI response...");
+      setIsTimerPaused(false);
+    });
+
+    // Cleanup
+    return () => {
+      inputSocketRef.current.disconnect();
+    };
+  }, [chatStarted]);
   
   // Handle the stopping of voice recording
   const onStop = async (recordedBlob) => {
@@ -325,9 +344,6 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
 
   const isStreamingRef = useRef(state.isStreaming);
 
-  // Create a ref to hold the socket connection
-  const streamingSocketRef = useRef(null);
-
   // State for showing Toasts
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showFailureToast, setShowFailureToast] = useState(false);
@@ -394,86 +410,89 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
   };
 
   // Handle the streaming state
+  useEffect(() => {
+    isStreamingRef.current = state.isStreaming;
+  }, [state.isStreaming]);
+
+  // Handle the streaming state
   const handleStreaming = () => {
+    console.log("Handling streaming state change...");
+
     if (state.isStreaming) {
-      // If currently streaming, stop streaming and emit 'stop_Streaming' event
-      dispatch({ type: 'SET_IS_STREAMING', payload: false });
+      console.log("Currently streaming. Trying to stop...");
+
+      // Emit 'stop_youtube_stream' before disconnecting the socket
       if (streamingSocketRef.current) {
+        console.log("Emitting stop_youtube_stream");
         streamingSocketRef.current.emit('stop_youtube_stream');
+        
+        // Add a delay to ensure server has time to send final toast message
+        setTimeout(() => {
+          console.log("Disconnecting the socket...");
+          streamingSocketRef.current.disconnect();
+          streamingSocketRef.current = null;
+          console.log("Socket disconnected and reference nullified.");
+
+          // Update state after socket is disconnected
+          dispatch({ type: 'SET_IS_STREAMING', payload: false });
+        });
       }
     } else {
+      console.log("Not currently streaming. Trying to start...");
+
       // If not currently streaming, start streaming
       dispatch({ type: 'SET_IS_STREAMING', payload: true });
+
+      console.log("Creating a new Socket.IO connection");
+      
+      // Create a new Socket.IO connection
+      streamingSocketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
+
+      try {
+ 
+        // Start streaming toast
+        streamingSocketRef.current.on('success_streaming_toast', (data) => {
+          const { toast_message } = data;
+          setToastMessage(toast_message);
+          setShowSuccessToast(true);
+        });
+    
+        // Stop streaming toast
+        streamingSocketRef.current.on('stopped_streaming_toast', (data) => {
+          const { toast_message } = data;
+          setToastMessage(toast_message);
+          setShowSuccessToast(true);
+        });
+    
+        // Error streaming toast
+        streamingSocketRef.current.on('error_streaming_toast', (data) => {
+          const { toast_message } = data;
+          setToastMessage(toast_message);
+          setShowFailureToast(true);
+        });
+  
+        // Set up event listeners for the Socket.IO connection
+        streamingSocketRef.current.on('new_message', (data) => {
+          const { ai_response, selected_message_content, selected_message_author } = data;
+        
+          // Your existing code to dispatch actions
+          dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: selected_message_author + ": " + selected_message_content, message_from: 'youtube' } });
+          dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
+        });
+        
+      } catch (error) {
+        console.error('An error occurred while toggling YouTube streaming:', error);
+        setToastMessage(error);
+        setShowFailureToast(true);
+      }
+  
+      // If not currently streaming, start streaming  
       if (streamingSocketRef.current) {
+        console.log("Emitting start_youtube_stream");
         streamingSocketRef.current.emit('start_youtube_stream', { videoID: videoID });
       }
     }
   };
-
-  // DEPRECATED
-  // const handleManualProcessMessage = () => {
-  //   streamingSocketRef.current.emit('manual_process_message');
-  // };
-
-
-  //
-  // SettingsPanel useEffect
-  //
-
-  // Handle the streaming state
-  useEffect(() => {
-
-    isStreamingRef.current = state.isStreaming;
-  }, [state.isStreaming]);
-
-  // Handle the streamingSocketRef connection and toast messages for streaming
-  useEffect(() => {
-    try {
-      // Create a Socket.IO connection
-      streamingSocketRef.current = io(`${process.env.REACT_APP_WEBSOCKET_URL}`);
-  
-      // Start streaming toast
-      streamingSocketRef.current.on('success_streaming_toast', (data) => {
-        const { toast_message } = data;
-        setToastMessage(toast_message);
-        setShowSuccessToast(true);
-      });
-  
-      // Stop streaming toast
-      streamingSocketRef.current.on('stopped_streaming_toast', (data) => {
-        const { toast_message } = data;
-        setToastMessage(toast_message);
-        setShowSuccessToast(true);
-      });
-  
-      // Error streaming toast
-      streamingSocketRef.current.on('error_streaming_toast', (data) => {
-        const { toast_message } = data;
-        setToastMessage(toast_message);
-        setShowFailureToast(true);
-      });
-
-      // Set up event listeners for the Socket.IO connection
-      streamingSocketRef.current.on('new_message', (data) => {
-        const { ai_response, selected_message_content, selected_message_author } = data;
-      
-        // Your existing code to dispatch actions
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: selected_message_author + ": " + selected_message_content, message_from: 'youtube' } });
-        dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'assistant', content: ai_response, message_from: 'ai' } });
-      });
-      
-    } catch (error) {
-      console.error('An error occurred while toggling YouTube streaming:', error);
-      setToastMessage(error);
-      setShowFailureToast(true);
-    }
-  
-    return () => {
-      if (streamingSocketRef.current) {
-        streamingSocketRef.current.disconnect();
-      }
-    };
-  }, []);
 
 
   //
@@ -982,10 +1001,6 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
                           <Button onClick={handleStreaming} disabled={!videoID}>
                             {state.isStreaming ? "Stop Streaming" : "Start Streaming"}
                           </Button>
-                          {/* DEPRECATED - New Button for Manual Message Processing */}
-                          {/* <Button onClick={handleManualProcessMessage}>
-                            Process Message Manually
-                          </Button> */}
                         </Form.Group>
                       </Form>
                     )}

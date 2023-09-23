@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from html import escape
 import logging
+from ..app import socketio
 from ..ai_response import get_ai_response
 from ..image_reader import upload_image
 
@@ -9,26 +10,31 @@ from ..image_reader import upload_image
 input_message_app = Blueprint('input_message_app', __name__)
 
 # Endpoint to handle text-based user prompts
-@input_message_app.route('/input_message', methods=['POST'])
-def input_message():
+@socketio.on('input_message')
+def handle_input_message(json_data):
 
-  # Check for image upload
-  image_description, image_error = upload_image(request)
-    
-  # Check for user text input and sanitize it
-  user_input = escape(request.form.get('input')) or None
+  # Extract form data
+  user_input = escape(json_data.get('input', ''))
+  uploaded_file_bytes = json_data.get('file_bytes', None)
+  uploaded_filename = json_data.get('filename', None)
+
+  # Logging to check file data
+  logging.info(f"File Bytes: {uploaded_file_bytes}, Filename: {uploaded_filename}")
   
-  # Error if no image file detected and no text input detected
+  # Upload image
+  image_description, image_error = upload_image(uploaded_file_bytes, uploaded_filename)
+
+  # Check for errors
   if not user_input and not image_description:
-    logging.error("No Image, No Text")
-    return jsonify(error="No input provided"), 400
-  
-  # Error in image upload function
+    socketio.emit('error', {'error': 'No input provided'})
+    return
+
   if image_error:
-    logging.error("Error in image upload function")
-    return jsonify(error=image_error), 400
-  
+    socketio.emit('error', {'error': image_error})
+    return
+
   # Get AI response
   ai_response = get_ai_response(user_input, 'user', image_description)
   
-  return jsonify(ai_response)
+  # Emit response back to client
+  socketio.emit('receive_input', ai_response)

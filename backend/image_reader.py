@@ -3,6 +3,7 @@ import os
 import logging
 import requests
 import tempfile
+import base64
 from transformers import pipeline
 from dotenv import load_dotenv
 
@@ -26,28 +27,28 @@ def allowed_file(filename):
 
   return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Function to handle image upload
-def upload_image(request):
-
-  # Check if the image file is present in the request
-  if 'file' not in request.files:
-    return None, None
-    
-  file = request.files['file']
-
-  # Check if a filename is provided
-  if file.filename == '':
-    return None, "No selected file"
+def upload_image(file_bytes, filename):
   
+  # Check if the file bytes are present
+  if not file_bytes:
+    return None, None
+  
+  # Decode base64 to bytes
+  file_bytes = base64.b64decode(file_bytes)
+  
+  # Check if a filename is provided
+  if not filename:
+    return None, "No selected file"
+    
   # Check for allowed file extensions
-  if file and allowed_file(file.filename):
+  if allowed_file(filename):
 
-    # Extract the file extension from the uploaded file
-    file_extension = file.filename.rsplit('.', 1)[1].lower()
+    # Extract the file extension from the filename
+    file_extension = filename.rsplit('.', 1)[1].lower()
 
-    # Create a temporary file with the same extension as the uploaded file
+    # Create a temporary file with the same extension
     with tempfile.NamedTemporaryFile(suffix=f".{file_extension}", delete=False) as temp_file:
-      file.save(temp_file.name)
+      temp_file.write(file_bytes)
       temp_file_path = temp_file.name
 
     # Process the image here
@@ -57,7 +58,7 @@ def upload_image(request):
     os.remove(temp_file_path)
 
     return image_description, None
-  
+
   else:
     return None, "File type not allowed"
 

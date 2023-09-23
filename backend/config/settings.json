@@ -18,7 +18,7 @@
     "AI_VOICE": "Freya",
     "AI_VOICE_ID": "jsCqWAovK2LkecY7zXl4",
     "ELABS_MODEL": "eleven_monolingual_v1",
-    "USE_GOOGLE": true
+    "USE_GOOGLE": false
   },
   "AI_EMBEDDING_SETTINGS": {
     "OPENAI_EMBEDDING_MODEL": "text-embedding-ada-002",

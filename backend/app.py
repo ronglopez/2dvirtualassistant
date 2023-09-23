@@ -63,13 +63,14 @@ from .ai_response import *
 from .image_reader import *
 
 # Initialize Queue
-shared_queue = Queue(maxsize=1)
+shared_queue = Queue(maxsize=5)
 
 # YouTube Manager Class
 class YouTubeManager:
 
   # Initialization function
   def __init__(self, queue):
+    logging.info("YouTubeManager initialized.")
 
     # Instance variable for the monitor thread
     self.monitor_thread = None
@@ -88,6 +89,7 @@ class YouTubeManager:
 
   # Function to start streaming
   def start_streaming(self, video_id):
+    logging.info("Attempting to start streaming.")
 
     # Check if streaming is already active
     if not self.is_active:
@@ -106,6 +108,7 @@ class YouTubeManager:
 
   # Function to stop streaming
   def stop_streaming(self):
+    logging.info("Attempting to stop streaming.")
 
     # Set streaming status to inactive
     self.is_active = False
@@ -116,7 +119,7 @@ class YouTubeManager:
       self.process.join()
       self.process = None
 
-    # Signal that the queue should be closed and joined, and stop the thread
+    # Signal that the monitor thread should stop
     self.stop_monitor_thread = True
 
     if self.monitor_thread:
@@ -129,6 +132,10 @@ class YouTubeManager:
 
   # Function to manage YouTube live chat
   def youtube_live_chat(self, video_id):
+    logging.info("Starting YouTube live chat management.")
+
+    # Reset the stop flag
+    self.stop_monitor_thread = False
 
     # Create a chat object using pytchat
     chat = pytchat.create(video_id=video_id)
@@ -171,17 +178,13 @@ class YouTubeManager:
       except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-      time.sleep(2)
+      time.sleep(5)
 
+# Worker for monitoring and enqueueing the queue
 def monitor_queue(youtube_manager, queue):
   
   while True:
     if youtube_manager.stop_monitor_thread:
-
-      # Close and join the queue
-      queue.close()
-      queue.join_thread()
-
       break
 
     if not queue.empty():
@@ -201,39 +204,11 @@ def monitor_queue(youtube_manager, queue):
       
       try:
         socketio.emit('new_message', data_to_emit, namespace='/')
+      
       except Exception as e:
         logging.error(f"Specific error: {e}")
 
-      time.sleep(2)
-
-# DEPRECATED - Processes the selected youtube stream message
-# def process_selected_message(selected_message):
-#   data_to_emit = {'youtube_result': None}
-
-#   selected_message_author = selected_message["author"]
-#   selected_message_content = selected_message["message"]
-
-#   # Get AI response
-#   ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 30 characters or less. {selected_message_author}: {selected_message_content}", 'user')
-
-#   data_to_emit['youtube_result'] = {
-#     'ai_response': ai_response,
-#     'selected_message_content': selected_message_content
-#   }
-  
-#   try:
-#     socketio.emit('new_message', data_to_emit['youtube_result'])
-  
-#   except Exception as e:
-#     logging.error(f"Specific error: {e}")
-  
-# DEPRECATED - Check and process YouTube comments
-# @socketio.on('manual_process_message')
-# def handle_manual_process_message():
-
-#   if not shared_queue.empty():
-#     selected_message = shared_queue.get()
-#     process_selected_message(selected_message)
+      time.sleep(1)
 
 # Initialize the YouTube Manager
 youtube_manager = YouTubeManager(shared_queue)
@@ -258,11 +233,15 @@ def handle_start_youtube_stream(data):
 def handle_stop_youtube_stream():
 
   youtube_manager.stop_streaming()
+  logging.info("Stopped streaming, now attempting to emit toast message.")
 
   # Return a message indicating the streaming state has changed
   try:
+    print("Backend is trying to send stopped_streaming_toast.")
     socketio.emit('stopped_streaming_toast', {"toast_message": "Streaming Stopped successfully!"})
+
   except Exception as e:
+    print("Backend encountered an error:", str(e))
     socketio.emit('error_streaming_toast', {"toast_message": str(e)})
 
 # Endpoints to handle voice-based user prompts and stopping voice listening
@@ -272,7 +251,7 @@ socketio.on('stop_listening')(voice_listener.handle_stop_listening)
 
 # Cleanup function
 def cleanup(signum, frame):
-  logging.info("Cleaning up...")
+  logging.info("Cleanup initiated...")
   
   # Stop streaming if active
   if youtube_manager.is_streaming_active():
@@ -292,5 +271,5 @@ signal.signal(signal.SIGINT, cleanup)
 
 # Run the Flask app in debug mode
 if __name__ == "__main__":
-  logging.info("Running the Flask app in debug mode...")
+  logging.info("Application starting...")
   socketio.run(app, debug=True)
