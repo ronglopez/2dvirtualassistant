@@ -141,6 +141,10 @@
   text-align: center;
 }
 
+.chat-log .chat-entry.system.error .chat-entry__bubble {
+  color: #dc3545;
+}
+
 .chat-log .chat-entry.user {
   text-align: right;
 }

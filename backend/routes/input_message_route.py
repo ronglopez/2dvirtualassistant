@@ -1,9 +1,8 @@
 # Import necessary libraries
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 from html import escape
 import logging
-from ..app import socketio
-from ..ai_response import get_ai_response
+from ..app import socketio, high_priority_queue
 from ..image_reader import upload_image
 
 # Create a Blueprint
@@ -26,15 +25,13 @@ def handle_input_message(json_data):
 
   # Check for errors
   if not user_input and not image_description:
-    socketio.emit('error', {'error': 'No input provided'})
+    socketio.emit('input_error', {'error': 'No input provided'})
     return
 
   if image_error:
-    socketio.emit('error', {'error': image_error})
+    socketio.emit('input_error', {'error': image_error})
     return
 
-  # Get AI response
-  ai_response = get_ai_response(user_input, 'user', image_description)
-  
-  # Emit response back to client
-  socketio.emit('receive_input', ai_response)
+  # Insert the message into the shared queue
+  high_priority_queue.put({"source": "input", "input": user_input, "image_description": image_description})
+  logging.info(f"Added high priority item to queue: input_message")

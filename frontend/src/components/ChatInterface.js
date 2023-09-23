@@ -179,7 +179,11 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
         // Perform the rest of the actions
         completeSubmission();
       };
-    } else {
+    } else if (trimmedInput) {
+      
+      // Add user's message to chat log for display
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'user', content: trimmedInput, message_from: 'admin' } });
+
       // Send data to backend via WebSocket
       inputSocketRef.current.emit('input_message', data);
 
@@ -222,6 +226,16 @@ const ChatInterface = ({ chatStarted, handleEndClick }) => {
       // Resume the periodic message timer
       console.log("Resuming periodic message timer after AI response...");
       setIsTimerPaused(false);
+    });
+
+    // Input error
+    inputSocketRef.current.on('input_error', (data) => {
+      const { error } = data;
+
+      // Show error in chat logo
+      // TODO - Add this functionality to all errors
+      dispatch({ type: 'ADD_CHAT_ENTRY', payload: { role: 'error', content: `Input error: ${error}`, message_from: 'system' } });
+      console.error("Input error:", error);
     });
 
     // Cleanup

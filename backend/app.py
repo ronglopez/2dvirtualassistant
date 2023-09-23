@@ -37,12 +37,6 @@ logging.info("Starting the application...")
 from .config.load_settings import settings
 from .config.settings_api import settings_app
 
-# Import routes
-from .routes.greeting_route import greeting_app
-from .routes.input_message_route import input_message_app
-from .routes.periodic_message_route import periodic_message_app
-from .routes.voice_route import voice_app
-
 # Import models
 from .models.voice_listener import VoiceListener
 
@@ -51,6 +45,20 @@ OPENAI_WHISPER_MODEL = settings['AI_AUDIO_SETTINGS']['OPENAI_WHISPER_MODEL']
 LISTEN_KEYWORD_QUIT = settings['AI_AUDIO_SETTINGS']['LISTEN_KEYWORD_QUIT']
 LISTEN_PERIODIC_MESSAGE_TIMER = settings['AI_AUDIO_SETTINGS']['LISTEN_PERIODIC_MESSAGE_TIMER']
 
+# Import AI answer functions
+from .ai_response import *
+from .image_reader import *
+
+# Initialize Queue
+shared_queue = Queue(maxsize=2)
+high_priority_queue = Queue(maxsize=3)
+
+# Import routes
+from .routes.greeting_route import greeting_app
+from .routes.input_message_route import input_message_app
+from .routes.periodic_message_route import periodic_message_app
+from .routes.voice_route import voice_app
+
 # Register Blueprints with your main app
 app.register_blueprint(greeting_app, url_prefix='/greeting')
 app.register_blueprint(input_message_app, url_prefix='/input_message')
@@ -58,12 +66,25 @@ app.register_blueprint(periodic_message_app, url_prefix='/periodic_message')
 app.register_blueprint(settings_app, url_prefix='/settings')
 app.register_blueprint(voice_app, url_prefix='/voice')
 
-# Import AI answer functions
-from .ai_response import *
-from .image_reader import *
+# Monitor Queue Class
+class QueueMonitor:
+  def __init__(self, regular_queue, priority_queue):
+    self.regular_queue = regular_queue
+    self.priority_queue = priority_queue
+    self.stop_monitor_thread = False
+    self.monitor_thread = None
 
-# Initialize Queue
-shared_queue = Queue(maxsize=5)
+  def start(self):
+    self.stop_monitor_thread = False
+    self.monitor_thread = Thread(target=monitor_queue, args=(self, self.regular_queue, self.priority_queue))
+    self.monitor_thread.start()
+
+  def stop(self):
+    self.stop_monitor_thread = True
+
+    if self.monitor_thread:
+      self.monitor_thread.join()
+      self.monitor_thread = None
 
 # YouTube Manager Class
 class YouTubeManager:
@@ -71,12 +92,6 @@ class YouTubeManager:
   # Initialization function
   def __init__(self, queue):
     logging.info("YouTubeManager initialized.")
-
-    # Instance variable for the monitor thread
-    self.monitor_thread = None
-
-    # Instance variable for the stop flag
-    self.stop_monitor_thread = False
 
     # Instance variable for the queue
     self.queue = queue
@@ -101,11 +116,6 @@ class YouTubeManager:
       self.process = Process(target=self.youtube_live_chat, args=(video_id,))
       self.process.start()
 
-      # Start the monitor thread
-      self.stop_monitor_thread = False
-      self.monitor_thread = Thread(target=monitor_queue, args=(self, self.queue))
-      self.monitor_thread.start()
-
   # Function to stop streaming
   def stop_streaming(self):
     logging.info("Attempting to stop streaming.")
@@ -119,13 +129,6 @@ class YouTubeManager:
       self.process.join()
       self.process = None
 
-    # Signal that the monitor thread should stop
-    self.stop_monitor_thread = True
-
-    if self.monitor_thread:
-      self.monitor_thread.join()
-      self.monitor_thread = None
-
   # Function to check if streaming is active
   def is_streaming_active(self):
     return self.is_active
@@ -133,9 +136,6 @@ class YouTubeManager:
   # Function to manage YouTube live chat
   def youtube_live_chat(self, video_id):
     logging.info("Starting YouTube live chat management.")
-
-    # Reset the stop flag
-    self.stop_monitor_thread = False
 
     # Create a chat object using pytchat
     chat = pytchat.create(video_id=video_id)
@@ -167,6 +167,7 @@ class YouTubeManager:
           if self.queue.full():
             _ = self.queue.get()  # Remove the oldest item
           
+          selected_message['source'] = 'youtube'
           self.queue.put(selected_message)  # Put the new item
 
       # Terminate chat on manual interrupt
@@ -181,37 +182,77 @@ class YouTubeManager:
       time.sleep(5)
 
 # Worker for monitoring and enqueueing the queue
-def monitor_queue(youtube_manager, queue):
+def monitor_queue(queue_monitor, regular_queue, priority_queue):
   
+  # Main loop to monitor queues
   while True:
-    if youtube_manager.stop_monitor_thread:
+
+    # If the stop flag is set, break the loop
+    if queue_monitor.stop_monitor_thread:
       break
 
-    if not queue.empty():
-      selected_message = queue.get()
-      
-      selected_message_author = selected_message["author"]
-      selected_message_content = selected_message["message"]
+    # First, check if the priority queue is not empty
+    if not priority_queue.empty():
 
-      # Get AI response
-      ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 50 characters or less. {selected_message_author}: {selected_message_content}", 'user')
+      # Get the next item from the priority queue
+      queue_item = priority_queue.get()
 
-      data_to_emit = {
-        'ai_response': ai_response,
-        'selected_message_author': selected_message_author,
-        'selected_message_content': selected_message_content
-      }
-      
-      try:
-        socketio.emit('new_message', data_to_emit, namespace='/')
-      
-      except Exception as e:
-        logging.error(f"Specific error: {e}")
+      # Extract the 'source' field from the queue item
+      source = queue_item["source"]
 
-      time.sleep(1)
+      # Check if the source is 'input' (user input)
+      if source == 'input':
 
-# Initialize the YouTube Manager
-youtube_manager = YouTubeManager(shared_queue)
+        # Extract user input and optional image description from the queue item
+        user_input = queue_item["input"]
+        image_description = queue_item.get("image_description", "")
+
+        # Get the AI response for the user input
+        ai_response = get_ai_response(user_input, 'user', image_description)
+
+        # Try to emit the AI response to the client
+        try:
+          socketio.emit('receive_input', ai_response, namespace='/')
+        # Handle any exceptions during the emit
+        except Exception as e:
+          logging.error(f"Specific error: {e}")
+
+    # If the priority queue is empty, check the regular queue
+    elif not regular_queue.empty():
+
+      # Get the next item from the regular queue
+      queue_item = regular_queue.get()
+
+      # Extract the 'source' field from the queue item
+      source = queue_item["source"]
+
+      # Check if the source is 'youtube' (YouTube chat)
+      if source == 'youtube':
+
+        # Extract author and message from the queue item
+        selected_message_author = queue_item["author"]
+        selected_message_content = queue_item["message"]
+
+        # Get the AI response for the YouTube message
+        ai_response = get_ai_response(f"Comment from the Youtube Live Stream. Please respond using 50 characters or less. {selected_message_author}: {selected_message_content}", 'user')
+
+        # Prepare data to emit
+        data_to_emit = {
+          'ai_response': ai_response,
+          'selected_message_author': selected_message_author,
+          'selected_message_content': selected_message_content
+        }
+
+        # Try to emit the prepared data to the client
+        try:
+          socketio.emit('new_message', data_to_emit, namespace='/')
+
+        # Handle any exceptions during the emit
+        except Exception as e:
+          logging.error(f"Specific error: {e}")
+
+    # Sleep for 1 second before the next iteration
+    time.sleep(1)
 
 # Handle YouTube start stream
 @socketio.on('start_youtube_stream')
@@ -237,21 +278,36 @@ def handle_stop_youtube_stream():
 
   # Return a message indicating the streaming state has changed
   try:
-    print("Backend is trying to send stopped_streaming_toast.")
+    logging.info("Backend is trying to send stopped_streaming_toast.")
     socketio.emit('stopped_streaming_toast', {"toast_message": "Streaming Stopped successfully!"})
 
   except Exception as e:
-    print("Backend encountered an error:", str(e))
+    logging.info("Backend encountered an error:", str(e))
     socketio.emit('error_streaming_toast', {"toast_message": str(e)})
 
-# Endpoints to handle voice-based user prompts and stopping voice listening
+# Initialize the QueueMonitor
+queue_monitor = QueueMonitor(shared_queue, high_priority_queue)
+
+# Initialize the YouTube Manager
+youtube_manager = YouTubeManager(shared_queue)
+
+# Initialize the Voice Listener
 voice_listener = VoiceListener()
+
+# Endpoints to handle voice-based user prompts and stopping voice listening
 socketio.on('start_listening')(voice_listener.handle_start_listening)
 socketio.on('stop_listening')(voice_listener.handle_stop_listening)
 
+# Start the monitor_queue thread using the QueueMonitor instance
+queue_monitor.start()
+logging.info("Queue starting...")
+
 # Cleanup function
-def cleanup(signum, frame):
+def cleanup(signum, frame): 
   logging.info("Cleanup initiated...")
+  
+  # Stop the monitor_queue thread
+  queue_monitor.stop()
   
   # Stop streaming if active
   if youtube_manager.is_streaming_active():
@@ -272,4 +328,5 @@ signal.signal(signal.SIGINT, cleanup)
 # Run the Flask app in debug mode
 if __name__ == "__main__":
   logging.info("Application starting...")
+
   socketio.run(app, debug=True)
